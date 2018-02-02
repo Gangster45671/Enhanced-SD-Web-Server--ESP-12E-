@@ -1,7 +1,11 @@
 # Enhanced SD Web Server (ESP-12E)
 An Enhanced SD Card Web Server running on an ESP-12E..
 
-- [Enhanced SD Web Server (ESP-12E)](#enhanced-sd-web-server-esp-12e)
+- [ESP8266 Temperature Logger](#esp8266-temperature-logger)
+    - [Planned Features (And Progress)](#planned-features-and-progress)
+    - [About](#about)
+    - [Planned Features (And Progress)](#planned-features-and-progress)
+    - [Planned Features (And Progress)](#planned-features-and-progress)r-esp-12e)
     - [Planned Features (And Progress)](#planned-features-and-progress)
     - [About](#about)
         - [Content Type Support](#content-type-support)
