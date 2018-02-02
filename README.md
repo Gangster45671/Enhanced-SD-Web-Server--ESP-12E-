@@ -23,6 +23,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [Request Log](#request-log)
         - [Per-Page Authentication](#per-page-authentication)
         - [Web Update / OTA](#web-update-ota)
+        - [IoT Server](#iot-server)
         - [Server Side Scripting](#server-side-scripting)
             - [Server Side Includes](#server-side-includes)
             - [Server Side Scripts](#server-side-scripts)
@@ -56,6 +57,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [ ] Serve Compressed(.gz) files
         - [ ] Per-Page Authentication Support
 - [ ] Finalize Server
+    - [ ] IoT API Server
     - [ ] Web Update or OTA
     - [ ] Server Side Scripting (CGI)
         - [ ] Run scripts
@@ -90,6 +92,8 @@ An Enhanced SD Card Web Server running on an ESP-12E..
 ### Per-Page Authentication
 
 ### Web Update / OTA
+
+### IoT Server
 
 ### Server Side Scripting
 #### Server Side Includes
@@ -144,3 +148,6 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [Email Notifier](https://tttapa.github.io/ESP8266/Chap17%20-%20Email%20Notifier.html)
             - [Advanced](https://tttapa.github.io/ESP8266/Chap18%20-%20Advanced.html)
             - [Conclusion](https://tttapa.github.io/ESP8266/Chap19%20-%20In%20Conclusion.html)
+- GitHub Markdown Info
+    - [Formatting and Syntax](https://help.github.com/articles/basic-writing-and-formatting-syntax/)
+    - [Emoji Cheat Sheet](https://www.webpagefx.com/tools/emoji-cheat-sheet/)
