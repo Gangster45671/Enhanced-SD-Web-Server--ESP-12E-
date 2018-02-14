@@ -51,6 +51,7 @@ static bool hasSD = false;
 File uploadFile;
 
 String logfileTemp;
+const char* updateIndex = "<form method='POST' action='/update/' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 
 void returnOK() {
   server.send(200, "text/plain", "");
@@ -317,10 +318,12 @@ void handleNotFound(){
 }
 
 void setup(void){
+  //start Serial communication
   DBG_OUTPUT_PORT.begin(115200);
   //DBG_OUTPUT_PORT.setDebugOutput(true);
   DBG_OUTPUT_PORT.print("\n");
 
+  //start the SD Card
   if (SD.begin(SS)){
      logadd("SD Card initialized.", true);
      hasSD = true;
@@ -331,6 +334,8 @@ void setup(void){
     logcommit();
     while(1) delay(500);
   }
+
+  //load config.jsn
   if (!loadConfig()) {
     logadd("Load or Parse Config.jsn failed.", true);
     logadd("", true);
@@ -339,7 +344,8 @@ void setup(void){
   } else {
     logadd("Config file read and parsed.", true);
   }
-  
+
+  //connect to wifi
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   logadd("Connecting to ", false);
@@ -357,36 +363,8 @@ void setup(void){
   }
   logadd("Connected! IP address: ", false);
   logadd(WiFi.localIP().toString(), true);
-  /*
-  ArduinoOTA.setPort(8266);
-  ArduinoOTA.setHostname(host);
-  ArduinoOTA.setPassword("admin");
-  ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-      type = "sketch";
-    else // U_SPIFFS
-      type = "filesystem";
 
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    Serial.println("Start updating " + type);
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-  */
+  //setup DNS
   if (MDNS.begin((const char *)hosts.c_str())) {
     MDNS.addService("http", "tcp", 80);
     logadd("MDNS responder started", true);
@@ -395,23 +373,67 @@ void setup(void){
     logadd(".local", true);
   }
 
-
+  //setup web pages
   server.on("/list", HTTP_GET, printDirectory);
   server.on("/edit", HTTP_DELETE, handleDelete);
   server.on("/edit", HTTP_PUT, handleCreate);
   server.on("/edit", HTTP_POST, [](){ returnOK(); }, handleFileUpload);
   server.onNotFound(handleNotFound);
 
+  //Update
+  server.on("/update/", HTTP_GET, []() {
+    server.send(200, "text/html", updateIndex);
+  });
+  server.on("/update/", HTTP_POST, [](){
+      server.sendHeader("Connection", "close");
+      server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
+      ESP.restart();
+    },[](){
+      HTTPUpload& upload = server.upload();
+      if(upload.status == UPLOAD_FILE_START){
+        Serial.setDebugOutput(true);
+        WiFiUDP::stopAll();
+        logadd("Update: %s\n", false);
+        logadd(upload.filename.c_str(), true);
+        logcommit();
+        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+        if(!Update.begin(maxSketchSpace)){//start with max available size
+          Update.printError(Serial);
+          logadd("Update failed", true);
+          logcommit();
+        }
+      } else if(upload.status == UPLOAD_FILE_WRITE){
+        if(Update.write(upload.buf, upload.currentSize) != upload.currentSize){
+          Update.printError(Serial);
+          logadd("Update failed", true);
+          logcommit();
+        }
+      } else if(upload.status == UPLOAD_FILE_END){
+        if(Update.end(true)){ //true to set the size to the current progress
+          logadd("Update Success: %u\nRebooting...\n", false);
+          logadd(String(upload.totalSize), true);
+          logcommit();
+        } else {
+          Update.printError(Serial);
+          logadd("Update failed", true);
+          logcommit();
+        }
+        Serial.setDebugOutput(false);
+      }
+      yield();
+    });
+
+  //begin server
   server.begin();
   logadd("HTTP server started", true);
 
+  //log everthing from startup
   logadd("", true);
   logcommit();
 }
 
 void loop(void){
   server.handleClient();
-  //ArduinoOTA.handle();
 }
 
 //low-level universal functions
@@ -514,4 +536,3 @@ bool loadConfig() {
     return false;
   }
 }
-
