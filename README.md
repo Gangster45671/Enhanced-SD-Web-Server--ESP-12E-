@@ -22,7 +22,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [404 Page](#404-page)
             - [Request Log](#request-log)
         - [Per-Page Authentication](#per-page-authentication)
-        - [Web Update / OTA](#web-update-ota)
+        - [Web Update](#web-update)
         - [IoT Server](#iot-server)
         - [Server Side Scripting](#server-side-scripting)
             - [Server Side Includes](#server-side-includes)
@@ -58,7 +58,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
         - [ ] Per-Page Authentication Support
 - [ ] Finalize Server
     - [ ] IoT API Server
-    - [ ] Web Update or OTA
+    - [X] Web Update
     - [ ] Server Side Scripting (CGI)
         - [ ] Run scripts
         - [ ] Server Side Includes (SSI)
@@ -96,7 +96,8 @@ All server activity is loged to the 'server.log' file, located at the root of th
 
 ### Per-Page Authentication
 
-### Web Update / OTA
+### Web Update
+By going to '/update/' you can upload a '.bin' file directly into the flash of your ESP. Allowing for firmware updates wirelessly/remotely.
 
 ### IoT Server
 

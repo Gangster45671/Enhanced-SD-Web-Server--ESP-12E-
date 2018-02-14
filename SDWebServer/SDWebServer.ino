@@ -38,12 +38,20 @@
 
 #define DBG_OUTPUT_PORT Serial
 
+//config variables
 const char* ssid;
 const char* password;
 const char* host;
 String ssids;
 String passwords;
 String hosts;
+const char* sssid;
+const char* spassword;
+const char* shost;
+String sssids;
+String spasswords;
+bool defaultSTA;
+bool clearLogonS;
 
 ESP8266WebServer server(80);
 
@@ -129,7 +137,7 @@ bool loadFromSdCard(String path){
     }
     if ((SD.exists(path+"index.htm") || SD.exists(path+"INDEX.HTM")) && !(server.argName(0) == "listing" && server.arg(0) == "true")) { //that directory has a index.htm, serve it
       //open index
-      path += "/index.htm";
+      if (path.endsWith("/")) {path += "index.htm";} else {path += "/index.htm";}
       dataType = "text/html";
       dataFile = SD.open(path.c_str());
     } else {                            //that directory has no index.htm, show a dir listing
@@ -327,9 +335,8 @@ void setup(void){
   if (SD.begin(SS)){
      logadd("SD Card initialized.", true);
      hasSD = true;
-     clearLog();
   } else {
-    logadd("SD Card failed.", true);
+    logadd("FATAL ERROR: SD Card failed.", true);
     logadd("", true);
     logcommit();
     while(1) delay(500);
@@ -337,7 +344,7 @@ void setup(void){
 
   //load config.jsn
   if (!loadConfig()) {
-    logadd("Load or Parse Config.jsn failed.", true);
+    logadd("FATAL ERROR: Load or Parse Config.jsn failed.", true);
     logadd("", true);
     logcommit();
     while(1) delay(500);
@@ -345,32 +352,14 @@ void setup(void){
     logadd("Config file read and parsed.", true);
   }
 
+  if (clearLogonS) clearLog();
+  
   //connect to wifi
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  logadd("Connecting to ", false);
-  logadd(ssids, true);
-
-  // Wait for connection
-  uint8_t i = 0;
-  while (WiFi.status() != WL_CONNECTED && i++ < 20) {//wait 10 seconds
-    delay(500);
-  }
-  if(i == 21){
-    logadd("Could not connect to", false);
-    logadd(ssids, true);
-    while(1) delay(500);
-  }
-  logadd("Connected! IP address: ", false);
-  logadd(WiFi.localIP().toString(), true);
-
-  //setup DNS
-  if (MDNS.begin((const char *)hosts.c_str())) {
-    MDNS.addService("http", "tcp", 80);
-    logadd("MDNS responder started", true);
-    logadd("You can now connect to http://", false);
-    logadd(hosts, false);
-    logadd(".local", true);
+  if (!defaultSTA) {
+    //Wifi AP mode
+    ApMode();
+  } else {
+    //WiFi Station mode
   }
 
   //setup web pages
@@ -391,7 +380,7 @@ void setup(void){
     },[](){
       HTTPUpload& upload = server.upload();
       if(upload.status == UPLOAD_FILE_START){
-        Serial.setDebugOutput(true);
+        //Serial.setDebugOutput(true);
         WiFiUDP::stopAll();
         logadd("Update: %s\n", false);
         logadd(upload.filename.c_str(), true);
@@ -418,7 +407,7 @@ void setup(void){
           logadd("Update failed", true);
           logcommit();
         }
-        Serial.setDebugOutput(false);
+        //Serial.setDebugOutput(false);
       }
       yield();
     });
@@ -510,29 +499,66 @@ String printDirectoryHTML(File dir, String path) {
 
 //configuration file
 bool loadConfig() {
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<400> jsonBuffer;
   String json;
   File configFile = SD.open("config.jsn");
   if (configFile) {
     while (configFile.available()) {
       char c = configFile.read();
-      if (c==';'){
-        
-        JsonObject& root = jsonBuffer.parseObject(json);
-        if (!root.success()) return false;
-        
-        ssid = root["wifi"]["ssid"];
-        password = root["wifi"]["pass"];
-        host = root["wifi"]["host"];
-        ssids = (const char *)root["wifi"]["ssid"];
-        //passwords = root["wifi"]["pass"];
-        hosts = (const char *)root["wifi"]["host"];
-      }
       json.concat(c);
     }
     configFile.close();
+        JsonObject& root = jsonBuffer.parseObject(json);
+        if (!root.success()) return false;
+        
+        ssid = root["wifi"]["ap"]["ssid"];
+        password = root["wifi"]["ap"]["pass"];
+        host = root["wifi"]["host"];
+        ssids = (const char *)root["wifi"]["ap"]["ssid"];
+        passwords = (const char *)root["wifi"]["ap"]["pass"];
+        hosts = (const char *)root["wifi"]["host"];
+
+        sssid = root["wifi"]["station"]["ssid"];
+        spassword = root["wifi"]["station"]["pass"];
+        shost = root["wifista"]["host"];
+        sssids = (const char *)root["wifi"]["station"]["ssid"];
+        spasswords = (const char *)root["wifi"]["station"]["pass"];
+
+        defaultSTA = root["wifi"]["defaultsta"];
+        clearLogonS = root["clearLog"];
+        
+        //log configurations
+        logadd("Server Boooting...", true);
+        logadd("WiFI Options:", true);
+        logadd("\t Access Point:", true);
+        logadd("\t\t ssid: ", false);
+        logadd(ssids, true);
+        logadd("\t\t pass: ", false);
+        logadd(passwords, true);
+        logadd("\t Station:", true);
+        logadd("\t\t ssid: ", false);
+        logadd(sssids, true);
+        logadd("\t\t pass: ", false);
+        logadd(spasswords, true);
+        logadd("\t DefaultSTA: ", false);
+        logadd((defaultSTA) ? "YES" : "NO", true);
+        logadd("\t hostname: ", false);
+        logadd(hosts, true);
+        logadd("ClearLog: ", false);
+        logadd((clearLogonS) ? "YES" : "NO", true);
+        logadd("", true);
+        logcommit();
     return true;
   } else {
     return false;
   }
 }
+
+void ApMode() {
+   
+}
+
+void saveConfig() {
+  
+}
+
