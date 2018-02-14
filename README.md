@@ -1,11 +1,7 @@
 # Enhanced SD Web Server (ESP-12E)
 An Enhanced SD Card Web Server running on an ESP-12E..
 
-- [ESP8266 Temperature Logger](#esp8266-temperature-logger)
-    - [Planned Features (And Progress)](#planned-features-and-progress)
-    - [About](#about)
-    - [Planned Features (And Progress)](#planned-features-and-progress)
-    - [Planned Features (And Progress)](#planned-features-and-progress)r-esp-12e)
+- [Enhanced SD Web Server (ESP-12E)](#enhanced-sd-web-server-esp-12e)
     - [Planned Features (And Progress)](#planned-features-and-progress)
     - [About](#about)
         - [Content Type Support](#content-type-support)
@@ -35,30 +31,30 @@ An Enhanced SD Card Web Server running on an ESP-12E..
         - [*FTP Support?*](#ftp-support)
         - [Configuration File](#configuration-file)
         - [Recommended SD Card File Structure](#recommended-sd-card-file-structure)
-    - [Usefull Links and References](#usefull-links-and-references)
+    - [Useful Links and References](#useful-links-and-references)
 
 ## Planned Features (And Progress)
 - [ ] Server Basis
     - [ ] WiFi AP or Station (Automatic Switch)
-    - [ ] mDNS Hostname
+    - [X] mDNS Hostname
     - [ ] Asynchronous Requests
 - [ ] Expand Server
-    - [ ] Interface
-        - [ ] Web SD File System Interface
-            - [ ] Create Files/Directories
-            - [ ] Upload Files/Directories
-            - [ ] Edit Files/Directories
-            - [ ] Delete Files/Directories
-            - [ ] Download Files/Directories
-        - [ ] Generated Pages
-            - [ ] 404 Page
-            - [ ] Index Retrieval
-            - [ ] Directory Retreival
-            - [ ] Request Logging
+    - [X] Interface
+        - [X] Web SD File System Interface
+            - [X] Create Files/Directories
+            - [X] Upload Files/Directories
+            - [X] Edit Files/Directories
+            - [X] Delete Files/Directories
+            - [X] Download Files/Directories
+        - [X] Generated Pages
+            - [X] 404 Page
+            - [X] Index Retrieval
+            - [X] Directory Retreival
+            - [X] Request Logging
     - [ ] Software
-        - [ ] Read Config. File
-        - [ ] Many Content Types
-            - [ ] Serve Compressed(.gz) files
+        - [X] Read Config. File
+        - [X] Many Content Types
+            - [X] Serve Compressed(.gz) files
         - [ ] Per-Page Authentication Support
 - [ ] Finalize Server
     - [ ] IoT API Server
@@ -89,9 +85,14 @@ An Enhanced SD Card Web Server running on an ESP-12E..
 
 ### Generated Pages
 #### Index Retrieval
+If you happen to browse into a directory and that directory has a 'index.htm' file, that will be served instead of the directory listing.
 #### Directory Retrieval
+By navigating to any directory with no 'index.htm' file, you will be shown a directory listing page.
+If you want to see the directory listing of a page that contains a 'index.htm' file you can simply pass the argument '?listing=true' with the URL.
 #### 404 Page
+If you navigate to a page that does not exist the server will show you a 404 error page. This page contains the URI, the method used to get the page and any arguments passed.
 #### Request Log
+All server activity is loged to the 'server.log' file, located at the root of the SD card.
 
 ### Per-Page Authentication
 
@@ -112,7 +113,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
 ### Recommended SD Card File Structure
 
 
-## Usefull Links and References
+## Useful Links and References
 - Similliar Projects
     - [SD Web Server Example](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WebServer/examples/SDWebServer/SDWebServer.ino) (Basis For This Project)
         - [Video](https://www.youtube.com/watch?v=zJP3Ie3nE7c)
