@@ -37,26 +37,39 @@
 #include <ArduinoJson.h>
 
 #define DBG_OUTPUT_PORT Serial
+#define IOT_SERVER                  //comment this out to remove iot server
+
+#ifdef IOT_SERVER
+  #include <TimeLib.h>
+  #include <WiFiUdp.h>
+  WiFiUDP Udp;
+  unsigned int localPort = 8888;  // local port to listen for UDP packets
+  time_t getNtpTime();
+  void digitalClockDisplay();
+  void printDigits(int digits);
+  void sendNTPpacket(IPAddress &address);
+
+  time_t prevDisplay = 0; // when the digital clock was displayed
+
+  String lastTimestamp = "NoNTP";
+#endif
 
 //config variables
-const char* ssid;
-const char* password;
-const char* host;
-String ssids;
-String passwords;
-String hosts;
-const char* sssid;
-const char* spassword;
-const char* shost;
-String sssids;
-String spasswords;
-bool defaultSTA;
-bool clearLogonS;
-String authName;
-String authPass;
-String lockedPages[10];
-int lArrSize;
-
+String ssids;               //ap mode ssid
+String passwords;           //ap mode password
+String sssids;              //station mode ssid
+String spasswords;          //station mode pass
+String hosts;               //mDNS hostname
+bool defaultSTA;            //default wifi mode
+bool clearLogonS;           //clear log on boot
+String authName;            //admin username
+String authPass;            //admin password
+String lockedPages[10];     //admin only pages, change this number if you need more than 10
+int lArrSize;               //size of locked pages array
+#ifdef IOT_SERVER
+  static const char ntpServerName[] = "0.cn.pool.ntp.org";      //NTP Server
+  const int timeZone = 8;                                       //Timezone in GMT+/-
+#endif
 ESP8266WebServer server(80);
 
 static bool hasSD = false;
@@ -178,6 +191,7 @@ bool loadFromSdCard() {
 }
 
 void handleFileUpload() {
+  int progress = 0;
   HTTPUpload& upload = server.upload();
   if (server.uri() != "/edit") return;
   if (upload.status == UPLOAD_FILE_START) {
@@ -186,7 +200,9 @@ void handleFileUpload() {
     DBG_OUTPUT_PORT.print("Upload: START, filename: "); DBG_OUTPUT_PORT.println(upload.filename);
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (uploadFile) uploadFile.write(upload.buf, upload.currentSize);
-    DBG_OUTPUT_PORT.print("Upload: WRITE, Bytes: "); DBG_OUTPUT_PORT.println(String(upload.currentSize));
+    progress += upload.currentSize;
+    DBG_OUTPUT_PORT.print("Upload: WRITE, Bytes: "); DBG_OUTPUT_PORT.print(String(upload.currentSize));
+    DBG_OUTPUT_PORT.print(" ("); DBG_OUTPUT_PORT.print(String(upload.totalSize)); DBG_OUTPUT_PORT.println("B)");
   } else if (upload.status == UPLOAD_FILE_END) {
     if (uploadFile) uploadFile.close();
     DBG_OUTPUT_PORT.print("Upload: END, Size: "); DBG_OUTPUT_PORT.println(String(upload.totalSize));
@@ -274,6 +290,8 @@ void printDirectory() {
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, "text/json", "");
   WiFiClient client = server.client();
+  //supa upload speed
+  client.setNoDelay(1);
   String output;
   server.sendContent("[");
   for (int cnt = 0; true; ++cnt) {
@@ -355,7 +373,7 @@ void handleNotFound() {
         for (uint8_t i = 0; i < (server.args() - 1); i++) {
           logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
         }
-        logadd("{ NAME:" + server.argName(server.args()-1) + ", VALUE:" + server.arg(server.args()-1) + "}", false);
+        logadd("{ NAME:" + server.argName(server.args() - 1) + ", VALUE:" + server.arg(server.args() - 1) + "}", false);
         logadd("]", true);
       } else {
         logadd("", true);
@@ -377,7 +395,7 @@ void handleNotFound() {
         for (uint8_t i = 0; i < (server.args() - 1); i++) {
           logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
         }
-        logadd("{ NAME:" + server.argName(server.args()-1) + ", VALUE:" + server.arg(server.args()-1) + "}", false);
+        logadd("{ NAME:" + server.argName(server.args() - 1) + ", VALUE:" + server.arg(server.args() - 1) + "}", false);
         logadd("]", true);
       } else {
         logadd("", true);
@@ -496,6 +514,17 @@ void setup(void) {
   //configure and begin server
   setUpServer();
 
+  #ifdef IOT_SERVER
+    logadd("Starting UDP", true);
+    Udp.begin(localPort);
+    //logadd("Local port: ", false);
+    //logadd(String(Udp.localPort()), true);
+    logadd("waiting for sync", true);
+    setSyncProvider(getNtpTime);
+    setSyncInterval(300);
+    logcommit();
+  #endif
+  
   //log everthing from startup
   logadd("", true);
   logcommit();
@@ -503,6 +532,14 @@ void setup(void) {
 
 void loop(void) {
   server.handleClient();
+
+
+  if (timeStatus() != timeNotSet) {
+    if (now() != prevDisplay) { //update the display only if time has changed
+      prevDisplay = now();
+      digitalClockDisplay();
+    }
+  }
 }
 
 //low-level universal functions
@@ -594,16 +631,16 @@ bool loadConfig() {
     JsonObject& root = jsonBuffer.parseObject(json);
     if (!root.success()) return false;
 
-    ssid = root["wifi"]["ap"]["ssid"];
-    password = root["wifi"]["ap"]["pass"];
-    host = root["wifi"]["host"];
+    //ssid = root["wifi"]["ap"]["ssid"];
+    //password = root["wifi"]["ap"]["pass"];
+    //host = root["wifi"]["host"];
     ssids = (const char *)root["wifi"]["ap"]["ssid"];
     passwords = (const char *)root["wifi"]["ap"]["pass"];
     hosts = (const char *)root["wifi"]["host"];
 
-    sssid = root["wifi"]["station"]["ssid"];
-    spassword = root["wifi"]["station"]["pass"];
-    shost = root["wifista"]["host"];
+    //sssid = root["wifi"]["station"]["ssid"];
+    //spassword = root["wifi"]["station"]["pass"];
+    //shost = root["wifista"]["host"];
     sssids = (const char *)root["wifi"]["station"]["ssid"];
     spasswords = (const char *)root["wifi"]["station"]["pass"];
 
@@ -656,13 +693,14 @@ bool loadConfig() {
   }
 }
 
+//switch wifi modes
 void ApMode() {
   logadd("Stopping HTTP server...", true);
   server.stop();
   WiFi.mode(WIFI_AP_STA);
   if (passwords.length() < 8 || passwords.length() > 63) {
     passwords = "";
-    password = NULL;
+    //password = NULL;
     logadd("Invalid WiFi AP Password, ignoring...", true);
     WiFi.softAP(ssids.c_str());
   } else {
@@ -682,6 +720,7 @@ void ApMode() {
   logadd(myIP.toString(), true);
 }
 
+//start HTTP server
 void setUpServer() {
   //setup web pages
   server.on("/list", HTTP_GET, printDirectory);
@@ -691,6 +730,11 @@ void setUpServer() {
     returnOK();
   }, handleFileUpload);
   server.onNotFound(handleNotFound);
+
+#ifdef IOT_SERVER
+  server.on("/iot", HTTP_GET, iotServer);
+  server.on("/iot/", HTTP_GET, iotServer);
+#endif
 
   //Update //moved to sd card
   /* server.on("/update/", HTTP_GET, []() {
@@ -740,6 +784,7 @@ void setUpServer() {
   logadd("HTTP server started", true);
 }
 
+//check if on locked page
 boolean lockedIncludeElement(String element) {
   for (int i = 0; i < lArrSize; i++) {
     if (lockedPages[i] == element) {
@@ -748,3 +793,131 @@ boolean lockedIncludeElement(String element) {
   }
   return false;
 }
+
+//iot server
+#ifdef IOT_SERVER
+void iotServer() {
+  if (server.argName(0) == "name" && server.argName(1) == "value") {
+    String timestamp = lastTimestamp;
+    String lvalue = server.arg(1);
+    String lname = server.arg(0);
+    
+    String dataString = "";
+    dataString += timestamp;
+    dataString += ", ";
+    dataString += lvalue;
+
+    File dataFile = SD.open("/iot/" + lname + ".csv", FILE_WRITE);
+    if (dataFile) {
+      dataFile.println(dataString);
+      dataFile.close();
+      // print to the serial port too:
+      logadd("IOT Server: (", false);
+      logadd(lname, false);
+      logadd(") ", false);
+      logadd(dataString, true);
+      server.send(200, "text/plain", "SUCCESS");
+    }
+    // if the file isn't open, pop up an error:
+    else {
+      logadd("IOT Server: Failed to open ", false);
+      logadd(lname, false);
+      logadd(".csv", true);
+    }
+    logcommit();
+  } else {
+    returnFail("BAD PATH");
+    return;
+  }
+}
+
+
+
+void digitalClockDisplay()
+{
+  // digital clock display of the time
+  lastTimestamp = "";
+  lastTimestamp += hour();
+  printDigits(minute());
+  printDigits(second());
+  lastTimestamp += " ";
+  lastTimestamp += day();
+  lastTimestamp += ".";
+  lastTimestamp += month();
+  lastTimestamp += ".";
+  lastTimestamp += year();
+  //Serial.println(lastTimestamp);
+}
+
+void printDigits(int digits)
+{
+  // utility for digital clock display: prints preceding colon and leading 0
+  lastTimestamp += ":";
+  if (digits < 10)
+    lastTimestamp += '0';
+  lastTimestamp += digits;
+}
+
+/*-------- NTP code ----------*/
+
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+
+time_t getNtpTime()
+{
+  IPAddress ntpServerIP; // NTP server's ip address
+
+  while (Udp.parsePacket() > 0) ; // discard any previously received packets
+  logadd("Transmit NTP Request", true);
+  // get a random server from the pool
+  WiFi.hostByName(ntpServerName, ntpServerIP);
+  logadd(ntpServerName, false);
+  logadd(": ", false);
+  logadd(ntpServerIP.toString(), true);
+  sendNTPpacket(ntpServerIP);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = Udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      logadd("Received NTP Response, synced.", true);
+      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      logcommit();
+      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+    }
+  }
+  logadd("No NTP Response :-(", true);
+  logcommit();
+  while (1) {};
+  return 0; // return 0 if unable to get the time
+}
+
+// send an NTP request to the time server at the given address
+void sendNTPpacket(IPAddress &address)
+{
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12] = 49;
+  packetBuffer[13] = 0x4E;
+  packetBuffer[14] = 49;
+  packetBuffer[15] = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
+}
+
+#endif
