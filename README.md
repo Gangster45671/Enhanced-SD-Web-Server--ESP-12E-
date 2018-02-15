@@ -29,7 +29,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [Server Side Scripts](#server-side-scripts)
         - [*Web Sockets?*](#web-sockets)
         - [*FTP Support?*](#ftp-support)
-        - [Configuration File](#configuration-file)
+        - [Configuration Page](#configuration-page)
         - [Recommended SD Card File Structure](#recommended-sd-card-file-structure)
     - [Useful Links and References](#useful-links-and-references)
 
@@ -52,7 +52,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [X] Directory Retreival
             - [X] Request Logging
     - [X] Software
-        - [X] Read Config. File
+        - [X] Config. Page
         - [X] Many Content Types
             - [X] Serve Compressed(.gz) files
         - [X] Per-Page Authentication Support
@@ -109,7 +109,7 @@ By going to '/update/' you can upload a '.bin' file directly into the flash of y
 ### *FTP Support?*
 [Video](https://www.youtube.com/watch?v=SnCIYrGF4s8)
 
-### Configuration File
+### Configuration Page
 
 ### Recommended SD Card File Structure
 

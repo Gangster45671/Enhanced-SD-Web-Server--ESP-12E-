@@ -323,6 +323,17 @@ void handleNotFound() {
       //doing file serve
       if (server.hasArg("download")) dataType = "application/octet-stream";
 
+      if ((path = "/admin/") && (server.argName(0) == "restart" && server.arg(0) == "true")) {
+        logadd("requested reset from admin page!", true);
+        logcommit();
+        delay(200);
+        //ESP.restart();
+        WiFi.forceSleepBegin(); wdt_reset(); ESP.restart(); while (1)wdt_reset();
+      }
+      if ((path = "/admin/") && (server.argName(0) == "clearLog" && server.arg(0) == "true")) {
+        clearLog();
+      }
+
       if (server.streamFile(dataFile, dataType) != dataFile.size()) {
         logadd("Load: Sent less data than expected!", true);
       }
@@ -335,7 +346,20 @@ void handleNotFound() {
       logadd("200 ", false);
       logadd(dataType, false);
       logadd(" ", false);
-      logadd(path, true);
+      logadd(path, false);
+      logadd(" ", false);
+      if (server.args() >= 1) {
+        logadd(" Arguments: ", false);
+        logadd(String(server.args()), false);
+        logadd(" -> [", false);
+        for (uint8_t i = 0; i < (server.args() - 1); i++) {
+          logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
+        }
+        logadd("{ NAME:" + server.argName(server.args()-1) + ", VALUE:" + server.arg(server.args()-1) + "}", false);
+        logadd("]", true);
+      } else {
+        logadd("", true);
+      }
       logcommit();
     } else {
       //doing dir list
@@ -344,7 +368,20 @@ void handleNotFound() {
       logadd("Load DirList: ", false);
       logadd((lockedIncludeElement(path)) ? "Auth " : "", false);
       logadd("200 ", false);
-      logadd(path, true);
+      logadd(path, false);
+      logadd(" ", false);
+      if (server.args() >= 1) {
+        logadd(" Arguments: ", false);
+        logadd(String(server.args()), false);
+        logadd(" -> [", false);
+        for (uint8_t i = 0; i < (server.args() - 1); i++) {
+          logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
+        }
+        logadd("{ NAME:" + server.argName(server.args()-1) + ", VALUE:" + server.arg(server.args()-1) + "}", false);
+        logadd("]", true);
+      } else {
+        logadd("", true);
+      }
       logcommit();
     }
 
@@ -399,6 +436,7 @@ void setup(void) {
     while (1) delay(500);
   }
 
+  logadd("Server Boooting...", true);
   //load config.jsn
   if (!loadConfig()) {
     logadd("FATAL ERROR: Load or Parse Config.jsn failed.", true);
@@ -409,7 +447,13 @@ void setup(void) {
     logadd("Config file read and parsed.", true);
   }
 
-  if (clearLogonS) clearLog();
+  if (clearLogonS) {
+    clearLog();
+    logadd("Server Boooting...", true);
+    logadd("SD Card initialized.", true);
+    logadd("Config file read and parsed.", true);
+    logcommit();
+  }
 
   //connect to wifi
   if (!defaultSTA) {
@@ -576,7 +620,6 @@ bool loadConfig() {
     lArrSize = root["auth"]["locked"].size();
 
     //log configurations
-    logadd("Server Boooting...", true);
     logadd("WiFI Options:", true);
     logadd("\t Access Point:", true);
     logadd("\t\t ssid: ", false);
