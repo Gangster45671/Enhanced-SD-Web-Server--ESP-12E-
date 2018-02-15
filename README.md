@@ -38,7 +38,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
     - [X] WiFi AP or Station (Automatic Switch)
     - [X] mDNS Hostname
     - [ ] Asynchronous Requests
-- [ ] Expand Server
+- [X] Expand Server
     - [X] Interface
         - [X] Web SD File System Interface
             - [X] Create Files/Directories
@@ -51,11 +51,11 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [X] Index Retrieval
             - [X] Directory Retreival
             - [X] Request Logging
-    - [ ] Software
+    - [X] Software
         - [X] Read Config. File
         - [X] Many Content Types
             - [X] Serve Compressed(.gz) files
-        - [ ] Per-Page Authentication Support
+        - [X] Per-Page Authentication Support
 - [ ] Finalize Server
     - [ ] IoT API Server
     - [X] Web Update

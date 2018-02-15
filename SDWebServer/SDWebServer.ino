@@ -52,14 +52,22 @@ String sssids;
 String spasswords;
 bool defaultSTA;
 bool clearLogonS;
+String authName;
+String authPass;
+String lockedPages[10];
+int lArrSize;
 
 ESP8266WebServer server(80);
 
 static bool hasSD = false;
 File uploadFile;
+File dataFile;
+bool directoryList;
+String dataType;
+String path;
+bool serveMode;
 
 String logfileTemp;
-const char* updateIndex = "<form method='POST' action='/update/' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 
 void returnOK() {
   server.send(200, "text/plain", "");
@@ -72,116 +80,115 @@ void returnFail(String msg) {
   logcommit();
 }
 
-bool loadFromSdCard(String path){
-  bool directoryList = false;
-  String dataType = "text/plain";
+bool loadFromSdCard() {
+  if (hasSD) {
+    directoryList = false;
+    dataType = "text/plain";
 
-  if(path.endsWith(".src")) path = path.substring(0, path.lastIndexOf("."));
-  String pathl = path;
-  pathl.toLowerCase();
-  //text types
-  if(pathl.endsWith(".htm")) dataType = "text/html";
-  else if(pathl.endsWith(".css")) dataType = "text/css";
-  else if(pathl.endsWith(".xml")) dataType = "text/xml";
-  else if(pathl.endsWith(".csv")) dataType = "text/csv";
-  else if(pathl.endsWith(".js")) dataType = "text/javascript";
-  else if(pathl.endsWith(".json") || path.endsWith(".jsn")) dataType = "text/json";
-  //image types
-  else if(pathl.endsWith(".png")) dataType = "image/png";
-  else if(pathl.endsWith(".jpg") || path.endsWith(".jpeg")) dataType = "image/jpg";
-  else if(pathl.endsWith(".gif")) dataType = "image/gif";
-  else if(pathl.endsWith(".bmp")) dataType = "image/bmp";
-  else if(pathl.endsWith(".svg")) dataType = "image/svg+xml";
-  else if(pathl.endsWith(".ico")) dataType = "image/x-icon";
-  //audio types
-  else if(pathl.endsWith(".mid")) dataType = "audio/midi";
-  else if(pathl.endsWith(".mp3")) dataType = "audio/mpeg";
-  else if(pathl.endsWith(".ogg")) dataType = "audio/ogg";
-  else if(pathl.endsWith(".wav")) dataType = "audio/wav";
-  //video types
-  else if(pathl.endsWith(".mp4")) dataType = "video/mp4";
-  //binary data types
-  else if(pathl.endsWith(".pdf")) dataType = "application/pdf";
-  else if(pathl.endsWith(".zip")) dataType = "application/zip";
-  else if(pathl.endsWith(".gz")) {                               //serve compressed versions too!
+    if (path.endsWith(".src")) path = path.substring(0, path.lastIndexOf("."));
+    String pathl = path;
+    pathl.toLowerCase();
     //text types
-    if(pathl.startsWith("/gz/htm")) dataType = "text/html";
-    else if(pathl.startsWith("/gz/css")) dataType = "text/css";
-    else if(pathl.startsWith("/gz/xml")) dataType = "text/xml";
-    else if(pathl.startsWith("/gz/csv")) dataType = "text/csv";
-    else if(pathl.startsWith("/gz/js")) dataType = "text/javascript";
-    else if(pathl.startsWith("/gz/jsn")) dataType = "text/json";
+    if (pathl.endsWith(".htm")) dataType = "text/html";
+    else if (pathl.endsWith(".css")) dataType = "text/css";
+    else if (pathl.endsWith(".xml")) dataType = "text/xml";
+    else if (pathl.endsWith(".csv")) dataType = "text/csv";
+    else if (pathl.endsWith(".js")) dataType = "text/javascript";
+    else if (pathl.endsWith(".json") || path.endsWith(".jsn")) dataType = "text/json";
     //image types
-    else if(pathl.startsWith("/gz/png")) dataType = "image/png";
-    else if(pathl.startsWith("/gz/jpg")) dataType = "image/jpg";
-    else if(pathl.startsWith("/gz/gif")) dataType = "image/gif";
-    else if(pathl.startsWith("/gz/bmp")) dataType = "image/bmp";
-    else if(pathl.startsWith("/gz/svg")) dataType = "image/svg+xml";
-    else if(pathl.startsWith("/gz/ico")) dataType = "image/x-icon";
+    else if (pathl.endsWith(".png")) dataType = "image/png";
+    else if (pathl.endsWith(".jpg") || path.endsWith(".jpeg")) dataType = "image/jpg";
+    else if (pathl.endsWith(".gif")) dataType = "image/gif";
+    else if (pathl.endsWith(".bmp")) dataType = "image/bmp";
+    else if (pathl.endsWith(".svg")) dataType = "image/svg+xml";
+    else if (pathl.endsWith(".ico")) dataType = "image/x-icon";
     //audio types
-    else if(pathl.startsWith("/gz/mid")) dataType = "audio/midi";
-    else if(pathl.startsWith("/gz/mp3")) dataType = "audio/mpeg";
-    else if(pathl.startsWith("/gz/ogg")) dataType = "audio/ogg";
-    else if(pathl.startsWith("/gz/wav")) dataType = "audio/wav";
+    else if (pathl.endsWith(".mid")) dataType = "audio/midi";
+    else if (pathl.endsWith(".mp3")) dataType = "audio/mpeg";
+    else if (pathl.endsWith(".ogg")) dataType = "audio/ogg";
+    else if (pathl.endsWith(".wav")) dataType = "audio/wav";
     //video types
-    else if(pathl.startsWith("/gz/mp4")) dataType = "video/mp4";
+    else if (pathl.endsWith(".mp4")) dataType = "video/mp4";
     //binary data types
-    else if(pathl.startsWith("/gz/pdf")) dataType = "application/pdf";
-    else dataType = "application/x-gzip";
-  }
+    else if (pathl.endsWith(".pdf")) dataType = "application/pdf";
+    else if (pathl.endsWith(".zip")) dataType = "application/zip";
+    else if (pathl.endsWith(".gz")) {                              //serve compressed versions too!
+      //text types
+      if (pathl.startsWith("/gz/htm")) dataType = "text/html";
+      else if (pathl.startsWith("/gz/css")) dataType = "text/css";
+      else if (pathl.startsWith("/gz/xml")) dataType = "text/xml";
+      else if (pathl.startsWith("/gz/csv")) dataType = "text/csv";
+      else if (pathl.startsWith("/gz/js")) dataType = "text/javascript";
+      else if (pathl.startsWith("/gz/jsn")) dataType = "text/json";
+      //image types
+      else if (pathl.startsWith("/gz/png")) dataType = "image/png";
+      else if (pathl.startsWith("/gz/jpg")) dataType = "image/jpg";
+      else if (pathl.startsWith("/gz/gif")) dataType = "image/gif";
+      else if (pathl.startsWith("/gz/bmp")) dataType = "image/bmp";
+      else if (pathl.startsWith("/gz/svg")) dataType = "image/svg+xml";
+      else if (pathl.startsWith("/gz/ico")) dataType = "image/x-icon";
+      //audio types
+      else if (pathl.startsWith("/gz/mid")) dataType = "audio/midi";
+      else if (pathl.startsWith("/gz/mp3")) dataType = "audio/mpeg";
+      else if (pathl.startsWith("/gz/ogg")) dataType = "audio/ogg";
+      else if (pathl.startsWith("/gz/wav")) dataType = "audio/wav";
+      //video types
+      else if (pathl.startsWith("/gz/mp4")) dataType = "video/mp4";
+      //binary data types
+      else if (pathl.startsWith("/gz/pdf")) dataType = "application/pdf";
+      else dataType = "application/x-gzip";
+    }
 
-  File dataFile = SD.open(path.c_str());
-  if(dataFile.isDirectory()){ //we are serving a directory
-    if (server.argName(0) == "listing" && server.arg(0) == "true") {
-      DBG_OUTPUT_PORT.println("debug args");
+    dataFile = SD.open(path.c_str());
+    if (dataFile.isDirectory()) { //we are serving a directory
+      if (!path.endsWith("/")) path += "/";
+      if ((SD.exists(path + "index.htm") || SD.exists(path + "INDEX.HTM")) && !(server.argName(0) == "listing" && server.arg(0) == "true")) { //that directory has a index.htm, serve it
+        //open index
+        String path2 = path;
+        if (path2.endsWith("/")) {
+          path2 += "index.htm";
+        } else {
+          path2 += "/index.htm";
+        }
+        dataType = "text/html";
+        dataFile = SD.open(path2.c_str());
+      } else {                            //that directory has no index.htm, show a dir listing
+        //list directory
+        directoryList = true;
+        if (!path.endsWith("/")) path += "/";
+        serveMode = false;//mode 1 dirlist (false)
+
+      }
     }
-    if ((SD.exists(path+"index.htm") || SD.exists(path+"INDEX.HTM")) && !(server.argName(0) == "listing" && server.arg(0) == "true")) { //that directory has a index.htm, serve it
-      //open index
-      if (path.endsWith("/")) {path += "index.htm";} else {path += "/index.htm";}
-      dataType = "text/html";
-      dataFile = SD.open(path.c_str());
-    } else {                            //that directory has no index.htm, show a dir listing
-      //list directory
-      directoryList = true;
-      server.send(200, "text/html", printDirectoryHTML(dataFile, path.c_str()));
-      dataFile.close();
-      logadd("Load DirList: 200 ", false);
-      logadd(path, true);
-      logcommit();
+    if (!directoryList) {
+      if (!dataFile)
+        return false;
+      serveMode = true;//mode 2 fileserve (true)
+
     }
+
+
+    if (path.endsWith("index.htm") || path.endsWith("INDEX.HTM")) {
+      path.remove(path.length() - 9);
+    }
+    return true;
+  } else {
+    return false;
   }
-  if (!directoryList) {
-    if (!dataFile)
-      return false;
-  
-    if (server.hasArg("download")) dataType = "application/octet-stream";
-  
-    if (server.streamFile(dataFile, dataType) != dataFile.size()) {
-      logadd("Load: Sent less data than expected!", true);
-    }
-  
-    dataFile.close();
-    logadd("Load: 200 ", false);
-    logadd(dataType, false);
-    logadd(" ", false);
-    logadd(path, true);
-    logcommit();
-  }
-  return true;
 }
 
-void handleFileUpload(){
+void handleFileUpload() {
   HTTPUpload& upload = server.upload();
-  if(server.uri() != "/edit") return;
-  if(upload.status == UPLOAD_FILE_START){
-    if(SD.exists((char *)upload.filename.c_str())) SD.remove((char *)upload.filename.c_str());
+  if (server.uri() != "/edit") return;
+  if (upload.status == UPLOAD_FILE_START) {
+    if (SD.exists((char *)upload.filename.c_str())) SD.remove((char *)upload.filename.c_str());
     uploadFile = SD.open(upload.filename.c_str(), FILE_WRITE);
     DBG_OUTPUT_PORT.print("Upload: START, filename: "); DBG_OUTPUT_PORT.println(upload.filename);
-  } else if(upload.status == UPLOAD_FILE_WRITE){
-    if(uploadFile) uploadFile.write(upload.buf, upload.currentSize);
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (uploadFile) uploadFile.write(upload.buf, upload.currentSize);
     DBG_OUTPUT_PORT.print("Upload: WRITE, Bytes: "); DBG_OUTPUT_PORT.println(String(upload.currentSize));
-  } else if(upload.status == UPLOAD_FILE_END){
-    if(uploadFile) uploadFile.close();
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (uploadFile) uploadFile.close();
     DBG_OUTPUT_PORT.print("Upload: END, Size: "); DBG_OUTPUT_PORT.println(String(upload.totalSize));
     logadd("Upload: ", false);
     logadd((char *)upload.filename.c_str(), true);
@@ -189,20 +196,20 @@ void handleFileUpload(){
   }
 }
 
-void deleteRecursive(String path){
+void deleteRecursive(String path) {
   File file = SD.open((char *)path.c_str());
-  if(!file.isDirectory()){
+  if (!file.isDirectory()) {
     file.close();
     SD.remove((char *)path.c_str());
     return;
   }
 
   file.rewindDirectory();
-  while(true) {
+  while (true) {
     File entry = file.openNextFile();
     if (!entry) break;
-    String entryPath = path + "/" +entry.name();
-    if(entry.isDirectory()){
+    String entryPath = path + "/" + entry.name();
+    if (entry.isDirectory()) {
       entry.close();
       deleteRecursive(entryPath);
     } else {
@@ -216,10 +223,10 @@ void deleteRecursive(String path){
   file.close();
 }
 
-void handleDelete(){
-  if(server.args() == 0) return returnFail("BAD ARGS");
+void handleDelete() {
+  if (server.args() == 0) return returnFail("BAD ARGS");
   String path = server.arg(0);
-  if(path == "/" || !SD.exists((char *)path.c_str())) {
+  if (path == "/" || !SD.exists((char *)path.c_str())) {
     returnFail("BAD PATH");
     return;
   }
@@ -230,17 +237,17 @@ void handleDelete(){
   logcommit();
 }
 
-void handleCreate(){
-  if(server.args() == 0) return returnFail("BAD ARGS");
+void handleCreate() {
+  if (server.args() == 0) return returnFail("BAD ARGS");
   String path = server.arg(0);
-  if(path == "/" || SD.exists((char *)path.c_str())) {
+  if (path == "/" || SD.exists((char *)path.c_str())) {
     returnFail("BAD PATH");
     return;
   }
 
-  if(path.indexOf('.') > 0){
+  if (path.indexOf('.') > 0) {
     File file = SD.open((char *)path.c_str(), FILE_WRITE);
-    if(file){
+    if (file) {
       file.write((const char *)0);
       file.close();
     }
@@ -254,12 +261,12 @@ void handleCreate(){
 }
 
 void printDirectory() {
-  if(!server.hasArg("dir")) return returnFail("BAD ARGS");
+  if (!server.hasArg("dir")) return returnFail("BAD ARGS");
   String path = server.arg("dir");
-  if(path != "/" && !SD.exists((char *)path.c_str())) return returnFail("BAD PATH");
+  if (path != "/" && !SD.exists((char *)path.c_str())) return returnFail("BAD PATH");
   File dir = SD.open((char *)path.c_str());
   path = String();
-  if(!dir.isDirectory()){
+  if (!dir.isDirectory()) {
     dir.close();
     return returnFail("NOT DIR");
   }
@@ -272,9 +279,9 @@ void printDirectory() {
   for (int cnt = 0; true; ++cnt) {
     File entry = dir.openNextFile();
     if (!entry)
-    break;
+      break;
 
-    
+
     if (cnt > 0)
       output = ',';
 
@@ -286,60 +293,110 @@ void printDirectory() {
     output += "}";
     server.sendContent(output);
     entry.close();
- }
- server.sendContent("]");
- dir.close();
- logadd("Print Directory: [", false);
- logadd(output, false);
- logadd("]", true);
- logcommit();
+  }
+  server.sendContent("]");
+  dir.close();
+  logadd("Print Directory: [", false);
+  logadd(output, false);
+  logadd("]", true);
+  logcommit();
 }
 
-void handleNotFound(){
-  if(hasSD && loadFromSdCard(server.uri())) return;
+void handleNotFound() {
+  //path processing
+
+  //setup
+  dataType = "text/plain";
+  path = server.uri();
+  if (loadFromSdCard()) {  //process
+    //found file
+
+    //do auth
+    if (lockedIncludeElement(path)) { //ask for Auth if page in auth list
+      if (!server.authenticate(authName.c_str(), authPass.c_str())) {
+        return server.requestAuthentication(DIGEST_AUTH, "Admin Zone", "<pre style=\"word-wrap: break-word; white-space: pre-wrap;\">401 Error\nPermission Denied\n\nThis is an Admin zone.</pre>");
+      }
+    }
+
+    //do serve
+    if (serveMode) {
+      //doing file serve
+      if (server.hasArg("download")) dataType = "application/octet-stream";
+
+      if (server.streamFile(dataFile, dataType) != dataFile.size()) {
+        logadd("Load: Sent less data than expected!", true);
+      }
+
+      dataFile.close();
+
+
+      logadd("Load: ", false);
+      logadd((lockedIncludeElement(path)) ? "Auth " : "", false);
+      logadd("200 ", false);
+      logadd(dataType, false);
+      logadd(" ", false);
+      logadd(path, true);
+      logcommit();
+    } else {
+      //doing dir list
+      server.send(200, "text/html", printDirectoryHTML(dataFile, path.c_str()));
+      dataFile.close();
+      logadd("Load DirList: ", false);
+      logadd((lockedIncludeElement(path)) ? "Auth " : "", false);
+      logadd("200 ", false);
+      logadd(path, true);
+      logcommit();
+    }
+
+    return;
+  }
+
+  //didn't find file
   String message = "404 Error\n";
   message += (!hasSD) ? "SDCARD Not Detected\n\n" : "File Not Found\n\n";
   message += "URI: ";
   message += server.uri();
   message += "\nMethod: ";
-  message += (server.method() == HTTP_GET)?"GET":"POST";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
   message += "\nArguments: ";
   message += server.args();
   message += "\n";
-  for (uint8_t i=0; i<server.args(); i++){
-    message += " NAME:"+server.argName(i) + "\n VALUE:" + server.arg(i) + "\n";
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " NAME:" + server.argName(i) + "\n VALUE:" + server.arg(i) + "\n";
   }
   server.send(404, "text/plain", message);
   logadd("Load: 404 ", false);
   logadd(server.uri(), false);
   logadd(" Method: ", false);
-  logadd((server.method() == HTTP_GET)?"GET":"POST", false);
+  logadd((server.method() == HTTP_GET) ? "GET" : "POST", false);
   logadd(" Arguments: ", false);
   logadd(String(server.args()), false);
   logadd(" -> [", false);
-  for (uint8_t i=0; i<(server.args()-1); i++){
-    logadd("{ NAME:"+server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
+  for (uint8_t i = 0; i < (server.args() - 1); i++) {
+    logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
   }
-  if (server.args() >= 1) {logadd("{ NAME:"+server.argName(server.args()) + ", VALUE:" + server.arg(server.args()) + "}", false);}
+  if (server.args() >= 1) {
+    logadd("{ NAME:" + server.argName(server.args()) + ", VALUE:" + server.arg(server.args()) + "}", false);
+  }
   logadd("]", true);
   logcommit();
 }
 
-void setup(void){
+void setup(void) {
   //start Serial communication
   DBG_OUTPUT_PORT.begin(115200);
   //DBG_OUTPUT_PORT.setDebugOutput(true);
   DBG_OUTPUT_PORT.print("\n");
 
   //start the SD Card
-  if (SD.begin(SS)){
-     logadd("SD Card initialized.", true);
-     hasSD = true;
+  if (SD.begin(SS)) {
+    logadd("SD Card initialized.", true);
+    hasSD = true;
   } else {
     logadd("FATAL ERROR: SD Card failed.", true);
     logadd("", true);
     logcommit();
-    while(1) delay(500);
+    while (1) delay(500);
   }
 
   //load config.jsn
@@ -347,13 +404,13 @@ void setup(void){
     logadd("FATAL ERROR: Load or Parse Config.jsn failed.", true);
     logadd("", true);
     logcommit();
-    while(1) delay(500);
+    while (1) delay(500);
   } else {
     logadd("Config file read and parsed.", true);
   }
 
   if (clearLogonS) clearLog();
-  
+
   //connect to wifi
   if (!defaultSTA) {
     //Wifi AP mode
@@ -361,19 +418,19 @@ void setup(void){
   } else {
     //WiFi Station mode
     WiFi.mode(WIFI_STA);
-    WiFi.begin(sssid, spassword);
+    WiFi.begin(sssids.c_str(), spasswords.c_str());
     logadd("Connecting to ", false);
     logadd(sssids, false);
     logadd("@", false);
     logadd(spasswords, true);
     // Wait for connection
     uint8_t i = 0;
-    while (WiFi.status() != WL_CONNECTED && i++ < 20) {//wait 10 seconds
+    while (WiFi.status() != WL_CONNECTED && i++ < 40) {//wait 10 seconds
       delay(500);
       DBG_OUTPUT_PORT.print(".");
     }
     DBG_OUTPUT_PORT.println(".");
-    if(i == 21){
+    if (i == 41) {
       logadd("Starting AP, Could not connect to ", false);
       logadd(sssids, true);
       ApMode();
@@ -381,14 +438,15 @@ void setup(void){
     }
     logadd("Connected! IP address: ", false);
     logadd(WiFi.localIP().toString(), true);
-    //setup DNS
-    if (MDNS.begin((const char *)hosts.c_str())) {
-      MDNS.addService("http", "tcp", 80);
-      logadd("MDNS responder started", true);
-      logadd("You can now connect to http://", false);
-      logadd(hosts, false);
-      logadd(".local", true);
-    }
+  }
+
+  //setup DNS
+  if (MDNS.begin((const char *)hosts.c_str())) {
+    MDNS.addService("http", "tcp", 80);
+    logadd("MDNS responder started", true);
+    logadd("You can now connect to http://", false);
+    logadd(hosts, false);
+    logadd(".local", true);
   }
 
   //configure and begin server
@@ -399,7 +457,7 @@ void setup(void){
   logcommit();
 }
 
-void loop(void){
+void loop(void) {
   server.handleClient();
 }
 
@@ -425,7 +483,7 @@ void logcommit() {
     logfileTemp = "";
   } else {
     DBG_OUTPUT_PORT.println("Log: file does not exist!");
-    while(1) delay(500);
+    while (1) delay(500);
   }
 }
 void clearLog() {
@@ -436,48 +494,51 @@ void clearLog() {
 
 //sd listing functions
 String printDirectoryHTML(File dir, String path) {
-   if (!path.endsWith("/")) path += "/";
-   String message = "<h2>Directory Listing: ";
-   message += path;
-   message += "</h2><table><tr><td><i>Filename</i></td><td><i>File Size</i></td></tr>";
-   if (!(path == "/")) {message += "<tr><td><a href='../'>../</a></td></tr>";}
-   message += "<title>Directory Listing: ";
-   message += path;
-   message += "</title>";
-   while(true) {
-     File entry =  dir.openNextFile();
-     if (! entry) { //no more files
-       break;
-     }
-     if (entry.isDirectory()) {
-       message += "<tr><td><b><a href='";
-       message += path;
-       //message += "/";
-       message += entry.name();
-       message += "/'>";
-       message += entry.name();
-       message += "</a></b></td></tr>";
-     } else {
-       // files have sizes, directories do not
-       message += "<tr><td><a href='";
-       message += path;
-       //message += "/";
-       message += entry.name();
-       message += "'>";
-       message += entry.name();
-       message += "</a></td><td><p>";
-       message += entry.size();
-       message += "B</p></td></tr>";
-     }
-     entry.close();
-   }
-   message += "</table><style>td {padding-top:0px;}</style>";
-   return message;
+  if (!path.endsWith("/")) path += "/";
+  String message = "<h2>Directory Listing: ";
+  message += path;
+  message += "</h2><table><tr><td><i>Filename</i></td><td><i>File Size</i></td></tr>";
+  if (!(path == "/")) {
+    message += "<tr><td><a href='../'>../</a></td></tr>";
   }
+  message += "<title>Directory Listing: ";
+  message += path;
+  message += "</title>";
+  while (true) {
+    File entry =  dir.openNextFile();
+    if (! entry) { //no more files
+      break;
+    }
+    if (entry.isDirectory()) {
+      message += "<tr><td><b><a href='";
+      message += path;
+      //message += "/";
+      message += entry.name();
+      message += "/'>";
+      message += entry.name();
+      message += "</a></b></td></tr>";
+    } else {
+      // files have sizes, directories do not
+      message += "<tr><td><a href='";
+      message += path;
+      //message += "/";
+      message += entry.name();
+      message += "'>";
+      message += entry.name();
+      message += "</a></td><td><p>";
+      message += entry.size();
+      message += "B</p></td></tr>";
+    }
+    entry.close();
+  }
+  message += "</table><style>td {padding-top:0px;}</style>";
+  return message;
+}
 
 //configuration file
 bool loadConfig() {
-  StaticJsonBuffer<400> jsonBuffer;
+  StaticJsonBuffer<600> jsonBuffer;
+  //DynamicJsonBuffer jsonBuffer(600);
   String json;
   File configFile = SD.open("config.jsn");
   if (configFile) {
@@ -486,46 +547,66 @@ bool loadConfig() {
       json.concat(c);
     }
     configFile.close();
-        JsonObject& root = jsonBuffer.parseObject(json);
-        if (!root.success()) return false;
-        
-        ssid = root["wifi"]["ap"]["ssid"];
-        password = root["wifi"]["ap"]["pass"];
-        host = root["wifi"]["host"];
-        ssids = (const char *)root["wifi"]["ap"]["ssid"];
-        passwords = (const char *)root["wifi"]["ap"]["pass"];
-        hosts = (const char *)root["wifi"]["host"];
+    JsonObject& root = jsonBuffer.parseObject(json);
+    if (!root.success()) return false;
 
-        sssid = root["wifi"]["station"]["ssid"];
-        spassword = root["wifi"]["station"]["pass"];
-        shost = root["wifista"]["host"];
-        sssids = (const char *)root["wifi"]["station"]["ssid"];
-        spasswords = (const char *)root["wifi"]["station"]["pass"];
+    ssid = root["wifi"]["ap"]["ssid"];
+    password = root["wifi"]["ap"]["pass"];
+    host = root["wifi"]["host"];
+    ssids = (const char *)root["wifi"]["ap"]["ssid"];
+    passwords = (const char *)root["wifi"]["ap"]["pass"];
+    hosts = (const char *)root["wifi"]["host"];
 
-        defaultSTA = root["wifi"]["defaultsta"];
-        clearLogonS = root["clearLog"];
-        
-        //log configurations
-        logadd("Server Boooting...", true);
-        logadd("WiFI Options:", true);
-        logadd("\t Access Point:", true);
-        logadd("\t\t ssid: ", false);
-        logadd(ssids, true);
-        logadd("\t\t pass: ", false);
-        logadd(passwords, true);
-        logadd("\t Station:", true);
-        logadd("\t\t ssid: ", false);
-        logadd(sssids, true);
-        logadd("\t\t pass: ", false);
-        logadd(spasswords, true);
-        logadd("\t DefaultSTA: ", false);
-        logadd((defaultSTA) ? "YES" : "NO", true);
-        logadd("\t hostname: ", false);
-        logadd(hosts, true);
-        logadd("ClearLog: ", false);
-        logadd((clearLogonS) ? "YES" : "NO", true);
-        logadd("", true);
-        logcommit();
+    sssid = root["wifi"]["station"]["ssid"];
+    spassword = root["wifi"]["station"]["pass"];
+    shost = root["wifista"]["host"];
+    sssids = (const char *)root["wifi"]["station"]["ssid"];
+    spasswords = (const char *)root["wifi"]["station"]["pass"];
+
+    defaultSTA = root["wifi"]["defaultsta"];
+    clearLogonS = root["clearLog"];
+
+    authName = (const char *)root["auth"]["user"]["name"];
+    authPass = (const char *)root["auth"]["user"]["pass"];
+    for (int i = 0; i < root["auth"]["locked"].size(); i++) {
+      String pthVal = root["auth"]["locked"][i];
+      //Serial.println(pthVal);
+      lockedPages[i] = pthVal;
+    }
+    lArrSize = root["auth"]["locked"].size();
+
+    //log configurations
+    logadd("Server Boooting...", true);
+    logadd("WiFI Options:", true);
+    logadd("\t Access Point:", true);
+    logadd("\t\t ssid: ", false);
+    logadd(ssids, true);
+    logadd("\t\t pass: ", false);
+    logadd(passwords, true);
+    logadd("\t Station:", true);
+    logadd("\t\t ssid: ", false);
+    logadd(sssids, true);
+    logadd("\t\t pass: ", false);
+    logadd(spasswords, true);
+    logadd("\t DefaultSTA: ", false);
+    logadd((defaultSTA) ? "YES" : "NO", true);
+    logadd("\t hostname: ", false);
+    logadd(hosts, true);
+    logadd("Auth Options:", true);
+    logadd("\t User:", true);
+    logadd("\t\t name: ", false);
+    logadd(authName, true);
+    logadd("\t\t pass: ", false);
+    logadd(authPass, true);
+    logadd("\t Locked Pages:", true);
+    for (int i = 0; i < lArrSize; i++) {
+      logadd("\t\t ", false);
+      logadd(lockedPages[i], true);
+    }
+    logadd("ClearLog: ", false);
+    logadd((clearLogonS) ? "YES" : "NO", true);
+    logadd("", true);
+    logcommit();
     return true;
   } else {
     return false;
@@ -533,28 +614,29 @@ bool loadConfig() {
 }
 
 void ApMode() {
-    logadd("Stopping HTTP server...", true);
-    server.stop();
-    WiFi.mode(WIFI_AP_STA);
-    if (passwords.length() < 8 || passwords.length() > 63) {
-      passwords = "";
-      password = NULL;
-      logadd("Invalid WiFi AP Password, ignoring...", true);
-      WiFi.softAP(ssids.c_str());
-    } else {
-      WiFi.softAP(ssids.c_str(), passwords.c_str());
-    }
-    delay(500);
-    logadd("Switched to AP mode", true);
-    //WiFi.begin();
-    setUpServer();
-    IPAddress myIP = WiFi.softAPIP();
-    logadd("Hosting to ", false);
-    logadd(ssids, false);
-    logadd("@", false);
-    logadd(passwords, true);
-    logadd("AP IP address: ", false);
-    logadd(myIP.toString(), true);
+  logadd("Stopping HTTP server...", true);
+  server.stop();
+  WiFi.mode(WIFI_AP_STA);
+  if (passwords.length() < 8 || passwords.length() > 63) {
+    passwords = "";
+    password = NULL;
+    logadd("Invalid WiFi AP Password, ignoring...", true);
+    WiFi.softAP(ssids.c_str());
+  } else {
+    WiFi.softAP(ssids.c_str(), passwords.c_str());
+  }
+  delay(500);
+  logadd("Switched to AP mode", true);
+  //WiFi.begin();
+  MDNS.notifyAPChange();
+  setUpServer();
+  IPAddress myIP = WiFi.softAPIP();
+  logadd("Hosting to ", false);
+  logadd(ssids, false);
+  logadd("@", false);
+  logadd(passwords, true);
+  logadd("AP IP address: ", false);
+  logadd(myIP.toString(), true);
 }
 
 void setUpServer() {
@@ -562,54 +644,64 @@ void setUpServer() {
   server.on("/list", HTTP_GET, printDirectory);
   server.on("/edit", HTTP_DELETE, handleDelete);
   server.on("/edit", HTTP_PUT, handleCreate);
-  server.on("/edit", HTTP_POST, [](){ returnOK(); }, handleFileUpload);
+  server.on("/edit", HTTP_POST, []() {
+    returnOK();
+  }, handleFileUpload);
   server.onNotFound(handleNotFound);
 
-  //Update
-  server.on("/update/", HTTP_GET, []() {
+  //Update //moved to sd card
+  /* server.on("/update/", HTTP_GET, []() {
     server.send(200, "text/html", updateIndex);
-  });
-  server.on("/update/", HTTP_POST, [](){
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
-      ESP.restart();
-    },[](){
-      HTTPUpload& upload = server.upload();
-      if(upload.status == UPLOAD_FILE_START){
-        //Serial.setDebugOutput(true);
-        WiFiUDP::stopAll();
-        logadd("Update: %s\n", false);
-        logadd(upload.filename.c_str(), true);
+    }); */
+  server.on("/update/", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      //Serial.setDebugOutput(true);
+      WiFiUDP::stopAll();
+      logadd("Update: %s\n", false);
+      logadd(upload.filename.c_str(), true);
+      logcommit();
+      uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+      if (!Update.begin(maxSketchSpace)) { //start with max available size
+        Update.printError(Serial);
+        logadd("Update failed", true);
         logcommit();
-        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        if(!Update.begin(maxSketchSpace)){//start with max available size
-          Update.printError(Serial);
-          logadd("Update failed", true);
-          logcommit();
-        }
-      } else if(upload.status == UPLOAD_FILE_WRITE){
-        if(Update.write(upload.buf, upload.currentSize) != upload.currentSize){
-          Update.printError(Serial);
-          logadd("Update failed", true);
-          logcommit();
-        }
-      } else if(upload.status == UPLOAD_FILE_END){
-        if(Update.end(true)){ //true to set the size to the current progress
-          logadd("Update Success: %u\nRebooting...\n", false);
-          logadd(String(upload.totalSize), true);
-          logcommit();
-        } else {
-          Update.printError(Serial);
-          logadd("Update failed", true);
-          logcommit();
-        }
-        //Serial.setDebugOutput(false);
       }
-      yield();
-    });
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+        logadd("Update failed", true);
+        logcommit();
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { //true to set the size to the current progress
+        logadd("Update Success: %u\nRebooting...\n", false);
+        logadd(String(upload.totalSize), true);
+        logcommit();
+      } else {
+        Update.printError(Serial);
+        logadd("Update failed", true);
+        logcommit();
+      }
+      //Serial.setDebugOutput(false);
+    }
+    yield();
+  });
 
   //begin server
   server.begin();
   logadd("HTTP server started", true);
 }
 
+boolean lockedIncludeElement(String element) {
+  for (int i = 0; i < lArrSize; i++) {
+    if (lockedPages[i] == element) {
+      return true;
+    }
+  }
+  return false;
+}

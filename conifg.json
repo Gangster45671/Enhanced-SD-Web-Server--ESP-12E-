@@ -1,0 +1,27 @@
+{
+    "wifi" : {
+        "station" : {
+            "ssid" : "27-1B",
+            "pass" : "1357924680"
+        },
+        "ap" : {
+            "ssid" : "MiniServer",
+            "pass" : "ESPserverSD"
+        },
+        "defaultsta" : false,
+        "host" : "miniserver"
+    },
+    "auth" : {
+        "user" : {
+            "name" : "admin",
+            "pass" : "admin"
+        },
+        "locked" : [
+            "/edit/",
+            "/update/",
+            "/server.log",
+            "config.jsn"
+        ]
+    },
+    "clearLog" : false
+}
