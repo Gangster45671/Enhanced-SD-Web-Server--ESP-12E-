@@ -37,22 +37,20 @@
 #include <ArduinoJson.h>
 
 #define DBG_OUTPUT_PORT Serial
+#define JSONBufferSize 800
 #define IOT_SERVER                  //comment this out to remove iot server
 
-#ifdef IOT_SERVER
-  #include <TimeLib.h>
-  #include <WiFiUdp.h>
-  WiFiUDP Udp;
-  unsigned int localPort = 8888;  // local port to listen for UDP packets
-  time_t getNtpTime();
-  void digitalClockDisplay();
-  void printDigits(int digits);
-  void sendNTPpacket(IPAddress &address);
-
-  time_t prevDisplay = 0; // when the digital clock was displayed
-
-  String lastTimestamp = "NoNTP";
-#endif
+#include <TimeLib.h>
+#include <WiFiUdp.h>
+WiFiUDP Udp;
+unsigned int localPort = 8888;  // local port to listen for UDP packets
+time_t getNtpTime();
+void digitalClockDisplay();
+void printDigits(int digits);
+void sendNTPpacket(IPAddress &address);
+time_t prevDisplay = 0; // when the digital clock was displayed
+String lastTimestamp = "NoNTP";
+String lastShortTimestamp = "NoNTP";
 
 //config variables
 String ssids;               //ap mode ssid
@@ -66,10 +64,9 @@ String authName;            //admin username
 String authPass;            //admin password
 String lockedPages[10];     //admin only pages, change this number if you need more than 10
 int lArrSize;               //size of locked pages array
-#ifdef IOT_SERVER
-  static const char ntpServerName[] = "0.cn.pool.ntp.org";      //NTP Server
-  const int timeZone = 8;                                       //Timezone in GMT+/-
-#endif
+String ntpServerName;    //NTP Server  //const static char 
+int timeZone;                     //Timezone in GMT+/-
+
 ESP8266WebServer server(80);
 
 static bool hasSD = false;
@@ -88,7 +85,8 @@ void returnOK() {
 
 void returnFail(String msg) {
   server.send(500, "text/plain", msg + "\r\n");
-  logadd("Fail: ", false);
+  shortTimeStamp();
+  logadd(F("Fail: "), false);
   logadd(msg, true);
   logcommit();
 }
@@ -206,7 +204,8 @@ void handleFileUpload() {
   } else if (upload.status == UPLOAD_FILE_END) {
     if (uploadFile) uploadFile.close();
     DBG_OUTPUT_PORT.print("Upload: END, Size: "); DBG_OUTPUT_PORT.println(String(upload.totalSize));
-    logadd("Upload: ", false);
+    shortTimeStamp();
+    logadd(F("Upload: "), false);
     logadd((char *)upload.filename.c_str(), true);
     logcommit();
   }
@@ -248,7 +247,8 @@ void handleDelete() {
   }
   deleteRecursive(path);
   returnOK();
-  logadd("Delete: ", false);
+  shortTimeStamp();
+  logadd(F("Delete: "), false);
   logadd(path, true);
   logcommit();
 }
@@ -271,7 +271,8 @@ void handleCreate() {
     SD.mkdir((char *)path.c_str());
   }
   returnOK();
-  logadd("Create: ", false);
+  shortTimeStamp();
+  logadd(F("Create: "), false);
   logadd(path, true);
   logcommit();
 }
@@ -314,9 +315,10 @@ void printDirectory() {
   }
   server.sendContent("]");
   dir.close();
-  logadd("Print Directory: [", false);
+  shortTimeStamp();
+  logadd(F("Print Directory: ["), false);
   logadd(output, false);
-  logadd("]", true);
+  logadd(F("]"), true);
   logcommit();
 }
 
@@ -342,63 +344,68 @@ void handleNotFound() {
       if (server.hasArg("download")) dataType = "application/octet-stream";
 
       if ((path = "/admin/") && (server.argName(0) == "restart" && server.arg(0) == "true")) {
-        logadd("requested reset from admin page!", true);
+        shortTimeStamp();
+        logadd(F("requested reset from admin page!"), true);
         logcommit();
+        server.send(200, "text/plain", "Restarting!");
         delay(200);
-        //ESP.restart();
-        WiFi.forceSleepBegin(); wdt_reset(); ESP.restart(); while (1)wdt_reset();
+        wdt_reset();ESP.restart();while (1) {wdt_reset();}
+        //WiFi.forceSleepBegin(); wdt_reset(); ESP.restart(); while (1)wdt_reset();
       }
       if ((path = "/admin/") && (server.argName(0) == "clearLog" && server.arg(0) == "true")) {
         clearLog();
       }
 
       if (server.streamFile(dataFile, dataType) != dataFile.size()) {
-        logadd("Load: Sent less data than expected!", true);
+        shortTimeStamp();
+        logadd(F("Load: Sent less data than expected!"), true);
       }
 
       dataFile.close();
 
-
-      logadd("Load: ", false);
+      shortTimeStamp();
+      logadd(F("Load: "), false);
       logadd((lockedIncludeElement(path)) ? "Auth " : "", false);
-      logadd("200 ", false);
+      logadd(F("200 "), false);
       logadd(dataType, false);
-      logadd(" ", false);
+      logadd(F(" "), false);
       logadd(path, false);
-      logadd(" ", false);
+      logadd(F(" "), false);
       if (server.args() >= 1) {
-        logadd(" Arguments: ", false);
+        logadd(F(" Arguments: "), false);
         logadd(String(server.args()), false);
-        logadd(" -> [", false);
+        logadd(F(" -> ["), false);
         for (uint8_t i = 0; i < (server.args() - 1); i++) {
           logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
         }
         logadd("{ NAME:" + server.argName(server.args() - 1) + ", VALUE:" + server.arg(server.args() - 1) + "}", false);
-        logadd("]", true);
+        logadd(F("]"), true);
       } else {
-        logadd("", true);
+        logadd(F(""), true);
       }
       logcommit();
     } else {
       //doing dir list
       server.send(200, "text/html", printDirectoryHTML(dataFile, path.c_str()));
       dataFile.close();
-      logadd("Load DirList: ", false);
+
+      shortTimeStamp();
+      logadd(F("Load DirList: "), false);
       logadd((lockedIncludeElement(path)) ? "Auth " : "", false);
-      logadd("200 ", false);
+      logadd(F("200 "), false);
       logadd(path, false);
-      logadd(" ", false);
+      logadd(F(" "), false);
       if (server.args() >= 1) {
-        logadd(" Arguments: ", false);
+        logadd(F(" Arguments: "), false);
         logadd(String(server.args()), false);
-        logadd(" -> [", false);
+        logadd(F(" -> ["), false);
         for (uint8_t i = 0; i < (server.args() - 1); i++) {
           logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
         }
         logadd("{ NAME:" + server.argName(server.args() - 1) + ", VALUE:" + server.arg(server.args() - 1) + "}", false);
-        logadd("]", true);
+        logadd(F("]"), true);
       } else {
-        logadd("", true);
+        logadd(F(""), true);
       }
       logcommit();
     }
@@ -420,20 +427,21 @@ void handleNotFound() {
     message += " NAME:" + server.argName(i) + "\n VALUE:" + server.arg(i) + "\n";
   }
   server.send(404, "text/plain", message);
-  logadd("Load: 404 ", false);
+  shortTimeStamp();
+  logadd(F("Load: 404 "), false);
   logadd(server.uri(), false);
-  logadd(" Method: ", false);
+  logadd(F(" Method: "), false);
   logadd((server.method() == HTTP_GET) ? "GET" : "POST", false);
-  logadd(" Arguments: ", false);
+  logadd(F(" Arguments: "), false);
   logadd(String(server.args()), false);
-  logadd(" -> [", false);
+  logadd(F(" -> ["), false);
   for (uint8_t i = 0; i < (server.args() - 1); i++) {
     logadd("{ NAME:" + server.argName(i) + ", VALUE:" + server.arg(i) + "}, ", false);
   }
   if (server.args() >= 1) {
     logadd("{ NAME:" + server.argName(server.args()) + ", VALUE:" + server.arg(server.args()) + "}", false);
   }
-  logadd("]", true);
+  logadd(F("]"), true);
   logcommit();
 }
 
@@ -445,31 +453,32 @@ void setup(void) {
 
   //start the SD Card
   if (SD.begin(SS)) {
-    logadd("SD Card initialized.", true);
+    shortTimeStamp();
+    logadd(F("SD Card initialized."), true);
     hasSD = true;
   } else {
-    logadd("FATAL ERROR: SD Card failed.", true);
-    logadd("", true);
+    logadd(F("FATAL ERROR: SD Card failed."), true);
+    logadd(F(""), true);
     logcommit();
     while (1) delay(500);
   }
 
-  logadd("Server Boooting...", true);
+  logadd(F("Server Boooting..."), true);
   //load config.jsn
   if (!loadConfig()) {
-    logadd("FATAL ERROR: Load or Parse Config.jsn failed.", true);
-    logadd("", true);
+    logadd(F("FATAL ERROR: Load or Parse Config.jsn failed."), true);
+    logadd(F(""), true);
     logcommit();
     while (1) delay(500);
   } else {
-    logadd("Config file read and parsed.", true);
+    logadd(F("Config file read and parsed."), true);
   }
 
   if (clearLogonS) {
     clearLog();
-    logadd("Server Boooting...", true);
-    logadd("SD Card initialized.", true);
-    logadd("Config file read and parsed.", true);
+    logadd(F("Server Boooting..."), true);
+    logadd(F("SD Card initialized."), true);
+    logadd(F("Config file read and parsed."), true);
     logcommit();
   }
 
@@ -481,9 +490,9 @@ void setup(void) {
     //WiFi Station mode
     WiFi.mode(WIFI_STA);
     WiFi.begin(sssids.c_str(), spasswords.c_str());
-    logadd("Connecting to ", false);
+    logadd(F("Connecting to "), false);
     logadd(sssids, false);
-    logadd("@", false);
+    logadd(F("@"), false);
     logadd(spasswords, true);
     // Wait for connection
     uint8_t i = 0;
@@ -493,46 +502,44 @@ void setup(void) {
     }
     DBG_OUTPUT_PORT.println(".");
     if (i == 41) {
-      logadd("Starting AP, Could not connect to ", false);
+      logadd(F("Starting AP, Could not connect to "), false);
       logadd(sssids, true);
       ApMode();
       return;
     }
-    logadd("Connected! IP address: ", false);
+    logadd(F("Connected! IP address: "), false);
     logadd(WiFi.localIP().toString(), true);
   }
 
   //setup DNS
   if (MDNS.begin((const char *)hosts.c_str())) {
     MDNS.addService("http", "tcp", 80);
-    logadd("MDNS responder started", true);
-    logadd("You can now connect to http://", false);
+    logadd(F("MDNS responder started"), true);
+    logadd(F("You can now connect to http://"), false);
     logadd(hosts, false);
-    logadd(".local", true);
+    logadd(F(".local"), true);
   }
 
   //configure and begin server
   setUpServer();
 
-  #ifdef IOT_SERVER
-    logadd("Starting UDP", true);
-    Udp.begin(localPort);
-    //logadd("Local port: ", false);
-    //logadd(String(Udp.localPort()), true);
-    logadd("waiting for sync", true);
-    setSyncProvider(getNtpTime);
-    setSyncInterval(300);
-    logcommit();
-  #endif
+  //begin UDP/NTP client
+  logadd(F("Starting UDP"), true);
+  Udp.begin(localPort);
+  //logadd(F("Local port: "), false);
+  //logadd(String(Udp.localPort()), true);
+  logadd(F("waiting for sync"), true);
+  setSyncProvider(getNtpTime);
+  setSyncInterval(300);
+  logcommit();
   
   //log everthing from startup
-  logadd("", true);
+  logadd(F(""), true);
   logcommit();
 }
 
 void loop(void) {
   server.handleClient();
-
 
   if (timeStatus() != timeNotSet) {
     if (now() != prevDisplay) { //update the display only if time has changed
@@ -540,6 +547,7 @@ void loop(void) {
       digitalClockDisplay();
     }
   }
+  
 }
 
 //low-level universal functions
@@ -569,7 +577,7 @@ void logcommit() {
 }
 void clearLog() {
   SD.remove("server.log");
-  logadd("Log: cleared log", true);
+  logadd(F("Log: cleared log"), true);
   logcommit();
 }
 
@@ -618,7 +626,7 @@ String printDirectoryHTML(File dir, String path) {
 
 //configuration file
 bool loadConfig() {
-  StaticJsonBuffer<600> jsonBuffer;
+  StaticJsonBuffer<JSONBufferSize> jsonBuffer;
   //DynamicJsonBuffer jsonBuffer(600);
   String json;
   File configFile = SD.open("config.jsn");
@@ -631,16 +639,10 @@ bool loadConfig() {
     JsonObject& root = jsonBuffer.parseObject(json);
     if (!root.success()) return false;
 
-    //ssid = root["wifi"]["ap"]["ssid"];
-    //password = root["wifi"]["ap"]["pass"];
-    //host = root["wifi"]["host"];
     ssids = (const char *)root["wifi"]["ap"]["ssid"];
     passwords = (const char *)root["wifi"]["ap"]["pass"];
     hosts = (const char *)root["wifi"]["host"];
 
-    //sssid = root["wifi"]["station"]["ssid"];
-    //spassword = root["wifi"]["station"]["pass"];
-    //shost = root["wifista"]["host"];
     sssids = (const char *)root["wifi"]["station"]["ssid"];
     spasswords = (const char *)root["wifi"]["station"]["pass"];
 
@@ -656,36 +658,49 @@ bool loadConfig() {
     }
     lArrSize = root["auth"]["locked"].size();
 
+    //ntp config
+    ntpServerName = (const char *)root["ntp"]["server"];
+    timeZone = root["ntp"]["timezone"];
+
     //log configurations
-    logadd("WiFI Options:", true);
-    logadd("\t Access Point:", true);
-    logadd("\t\t ssid: ", false);
+    shortTimeStamp();
+    logadd("", true);
+    logadd(F("WiFI Options:"), true);
+    logadd(F("\t Access Point:"), true);
+    logadd(F("\t\t ssid: "), false);
     logadd(ssids, true);
-    logadd("\t\t pass: ", false);
+    logadd(F("\t\t pass: "), false);
     logadd(passwords, true);
-    logadd("\t Station:", true);
-    logadd("\t\t ssid: ", false);
+    logadd(F("\t Station:"), true);
+    logadd(F("\t\t ssid: "), false);
     logadd(sssids, true);
-    logadd("\t\t pass: ", false);
+    logadd(F("\t\t pass: "), false);
     logadd(spasswords, true);
-    logadd("\t DefaultSTA: ", false);
+    logadd(F("\t DefaultSTA: "), false);
     logadd((defaultSTA) ? "YES" : "NO", true);
-    logadd("\t hostname: ", false);
+    logadd(F("\t hostname: "), false);
     logadd(hosts, true);
-    logadd("Auth Options:", true);
-    logadd("\t User:", true);
-    logadd("\t\t name: ", false);
+    logadd(F("Auth Options:"), true);
+    logadd(F("\t User:"), true);
+    logadd(F("\t\t name: "), false);
     logadd(authName, true);
-    logadd("\t\t pass: ", false);
+    logadd(F("\t\t pass: "), false);
     logadd(authPass, true);
-    logadd("\t Locked Pages:", true);
+    logadd(F("\t Locked Pages:"), true);
     for (int i = 0; i < lArrSize; i++) {
-      logadd("\t\t ", false);
+      logadd(F("\t\t "), false);
       logadd(lockedPages[i], true);
     }
-    logadd("ClearLog: ", false);
+
+    logadd(F("NTP:"), true);
+    logadd(F("\t Server: "), false);
+    logadd(ntpServerName, true);
+    logadd(F("\t Timezone: GMT"), false);
+    logadd(String(timeZone), true);
+    
+    logadd(F("ClearLog: "), false);
     logadd((clearLogonS) ? "YES" : "NO", true);
-    logadd("", true);
+    logadd(F(""), true);
     logcommit();
     return true;
   } else {
@@ -695,28 +710,28 @@ bool loadConfig() {
 
 //switch wifi modes
 void ApMode() {
-  logadd("Stopping HTTP server...", true);
+  logadd(F("Stopping HTTP server..."), true);
   server.stop();
   WiFi.mode(WIFI_AP_STA);
   if (passwords.length() < 8 || passwords.length() > 63) {
     passwords = "";
     //password = NULL;
-    logadd("Invalid WiFi AP Password, ignoring...", true);
+    logadd(F("Invalid WiFi AP Password, ignoring..."), true);
     WiFi.softAP(ssids.c_str());
   } else {
     WiFi.softAP(ssids.c_str(), passwords.c_str());
   }
   delay(500);
-  logadd("Switched to AP mode", true);
+  logadd(F("Switched to AP mode"), true);
   //WiFi.begin();
   MDNS.notifyAPChange();
   setUpServer();
   IPAddress myIP = WiFi.softAPIP();
-  logadd("Hosting to ", false);
+  logadd(F("Hosting to "), false);
   logadd(ssids, false);
-  logadd("@", false);
+  logadd(F("@"), false);
   logadd(passwords, true);
-  logadd("AP IP address: ", false);
+  logadd(F("AP IP address: "), false);
   logadd(myIP.toString(), true);
 }
 
@@ -735,6 +750,12 @@ void setUpServer() {
   server.on("/iot", HTTP_GET, iotServer);
   server.on("/iot/", HTTP_GET, iotServer);
 #endif
+  server.on("/time", HTTP_GET, []() {
+    server.send(200, "text/plain", lastTimestamp);
+  });
+  server.on("/time/", HTTP_GET, []() {
+    server.send(200, "text/plain", lastTimestamp);
+  });
 
   //Update //moved to sd card
   /* server.on("/update/", HTTP_GET, []() {
@@ -749,29 +770,29 @@ void setUpServer() {
     if (upload.status == UPLOAD_FILE_START) {
       //Serial.setDebugOutput(true);
       WiFiUDP::stopAll();
-      logadd("Update: %s\n", false);
+      logadd(F("Update: %s\n"), false);
       logadd(upload.filename.c_str(), true);
       logcommit();
       uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
       if (!Update.begin(maxSketchSpace)) { //start with max available size
         Update.printError(Serial);
-        logadd("Update failed", true);
+        logadd(F("Update failed"), true);
         logcommit();
       }
     } else if (upload.status == UPLOAD_FILE_WRITE) {
       if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
         Update.printError(Serial);
-        logadd("Update failed", true);
+        logadd(F("Update failed"), true);
         logcommit();
       }
     } else if (upload.status == UPLOAD_FILE_END) {
       if (Update.end(true)) { //true to set the size to the current progress
-        logadd("Update Success: %u\nRebooting...\n", false);
+        logadd(F("Update Success: %u\nRebooting...\n"), false);
         logadd(String(upload.totalSize), true);
         logcommit();
       } else {
         Update.printError(Serial);
-        logadd("Update failed", true);
+        logadd(F("Update failed"), true);
         logcommit();
       }
       //Serial.setDebugOutput(false);
@@ -781,7 +802,7 @@ void setUpServer() {
 
   //begin server
   server.begin();
-  logadd("HTTP server started", true);
+  logadd(F("HTTP server started"), true);
 }
 
 //check if on locked page
@@ -812,17 +833,19 @@ void iotServer() {
       dataFile.println(dataString);
       dataFile.close();
       // print to the serial port too:
-      logadd("IOT Server: (", false);
+      shortTimeStamp();
+      logadd(F("IOT Server: ("), false);
       logadd(lname, false);
-      logadd(") ", false);
+      logadd(F(") "), false);
       logadd(dataString, true);
       server.send(200, "text/plain", "SUCCESS");
     }
     // if the file isn't open, pop up an error:
     else {
-      logadd("IOT Server: Failed to open ", false);
+      shortTimeStamp();
+      logadd(F("IOT Server: Failed to open "), false);
       logadd(lname, false);
-      logadd(".csv", true);
+      logadd(F(".csv"), true);
     }
     logcommit();
   } else {
@@ -830,32 +853,49 @@ void iotServer() {
     return;
   }
 }
+#endif
 
 
-
+bool firstT = true;
 void digitalClockDisplay()
 {
   // digital clock display of the time
   lastTimestamp = "";
   lastTimestamp += hour();
+  lastTimestamp += ":";
   printDigits(minute());
+  lastTimestamp += ":";
   printDigits(second());
   lastTimestamp += " ";
-  lastTimestamp += day();
-  lastTimestamp += ".";
-  lastTimestamp += month();
-  lastTimestamp += ".";
+  printDigits(day());
+  lastTimestamp += "/";
+  printDigits(month());
+  lastTimestamp += "/";
   lastTimestamp += year();
-  //Serial.println(lastTimestamp);
+  if (firstT) logadd(lastTimestamp, true); logcommit(); firstT = false;
+
+  lastShortTimestamp = "";
+  lastShortTimestamp += hour();
+  lastShortTimestamp += ":";
+  printDigitsS(minute());
+  lastShortTimestamp += ":";
+  printDigitsS(second());
 }
 
 void printDigits(int digits)
 {
   // utility for digital clock display: prints preceding colon and leading 0
-  lastTimestamp += ":";
   if (digits < 10)
     lastTimestamp += '0';
   lastTimestamp += digits;
+}
+
+void printDigitsS(int digits)
+{
+  // utility for digital clock display: prints preceding colon and leading 0
+  if (digits < 10)
+    lastShortTimestamp += '0';
+  lastShortTimestamp += digits;
 }
 
 /*-------- NTP code ----------*/
@@ -868,18 +908,19 @@ time_t getNtpTime()
   IPAddress ntpServerIP; // NTP server's ip address
 
   while (Udp.parsePacket() > 0) ; // discard any previously received packets
-  logadd("Transmit NTP Request", true);
+  logadd(F("Transmiting NTP Request.."), true);
   // get a random server from the pool
-  WiFi.hostByName(ntpServerName, ntpServerIP);
+  WiFi.hostByName(ntpServerName.c_str(), ntpServerIP);
   logadd(ntpServerName, false);
-  logadd(": ", false);
+  logadd(F(": "), false);
   logadd(ntpServerIP.toString(), true);
   sendNTPpacket(ntpServerIP);
   uint32_t beginWait = millis();
   while (millis() - beginWait < 1500) {
     int size = Udp.parsePacket();
     if (size >= NTP_PACKET_SIZE) {
-      logadd("Received NTP Response, synced.", true);
+      logadd(F("Received NTP Response, synced."), true);
+      firstT = true;
       Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
       unsigned long secsSince1900;
       // convert four bytes starting at location 40 to a long integer
@@ -891,9 +932,10 @@ time_t getNtpTime()
       return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
     }
   }
-  logadd("No NTP Response :-(", true);
+  shortTimeStamp();
+  logadd(F("No NTP Response :-("), true);
   logcommit();
-  while (1) {};
+  //while (1) {};
   return 0; // return 0 if unable to get the time
 }
 
@@ -920,4 +962,9 @@ void sendNTPpacket(IPAddress &address)
   Udp.endPacket();
 }
 
-#endif
+void shortTimeStamp() {
+  logadd(F("["), false);
+  logadd(lastShortTimestamp, false);
+  logadd(F("] "), false);
+}
+

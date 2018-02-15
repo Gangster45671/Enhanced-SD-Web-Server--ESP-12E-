@@ -6,22 +6,83 @@
         },
         "ap" : {
             "ssid" : "MiniServer",
-            "pass" : "ESPserverSD"
+            "pass" : "ESPserver"
         },
-        "defaultsta" : false,
+        "defaultsta" : true,
         "host" : "miniserver"
     },
     "auth" : {
         "user" : {
             "name" : "admin",
-            "pass" : "admin"
+            "pass" : "esp8266"
         },
         "locked" : [
             "/edit/",
             "/update/",
             "/server.log",
-            "config.jsn"
+            "/admin/",
+            "/config.jsn"
         ]
     },
-    "clearLog" : false
+    "ntp" : {
+        "server" : "0.cn.pool.ntp.org",
+        "timezone" : "8"
+    },
+    "clearLog" : true
+}
+
+
+
+
+
+
+static const char ntpServerName[];      //NTP Server
+const int timeZone;  
+
+
+
+ntp-srv
+ntp-tmz
+
+{"wifi" : {"station" : {"ssid" : "SSID Here","pass" : "PASS Here"},"ap" : {"ssid" : "MiniServer","pass" : "ESPserverSD"},"defaultsta" : true,"host" : "miniserver"},"auth" : {"user" : {"name" : "admin","pass" : "admin"},"locked" : ["/edit/","/update/","/server.log","/admin/","/config.jsn"]}, "ntp" : { "server":"x.xx.pool.ntp.org", "timezone":0}, clearLog" : true}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+    "wifi" : {
+        "station" : {
+            "ssid" : "27-1B",
+            "pass" : "1357924680"
+        },
+        "ap" : {
+            "ssid" : "MiniServer",
+            "pass" : "ESPserver"
+        },
+        "defaultsta" : true,
+        "host" : "miniserver"
+    },
+    "auth" : {
+        "user" : {
+            "name" : "admin",
+            "pass" : "esp8266"
+        },
+        "locked" : [
+"/edit/",
+"/update/",
+"/server.log",
+"/admin/",
+"/config.jsn"        ]
+    },
+    "clearLog" : true
 }
