@@ -530,7 +530,7 @@ void setup(void) {
   //logadd(String(Udp.localPort()), true);
   logadd(F("waiting for sync"), true);
   setSyncProvider(getNtpTime);
-  setSyncInterval(300);
+  setSyncInterval(1800);                     //renew connection every 30min
   logcommit();
   
   //log everthing from startup
@@ -861,7 +861,7 @@ void digitalClockDisplay()
 {
   // digital clock display of the time
   lastTimestamp = "";
-  lastTimestamp += hour();
+  printDigits(hour());
   lastTimestamp += ":";
   printDigits(minute());
   lastTimestamp += ":";
@@ -875,7 +875,7 @@ void digitalClockDisplay()
   if (firstT) logadd(lastTimestamp, true); logcommit(); firstT = false;
 
   lastShortTimestamp = "";
-  lastShortTimestamp += hour();
+  printDigitsS(hour());
   lastShortTimestamp += ":";
   printDigitsS(minute());
   lastShortTimestamp += ":";

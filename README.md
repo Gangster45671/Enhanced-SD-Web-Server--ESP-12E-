@@ -57,7 +57,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [X] Serve Compressed(.gz) files
         - [X] Per-Page Authentication Support
 - [ ] Finalize Server
-    - [ ] IoT API Server
+    - [X] IoT API Server
     - [X] Web Update
     - [ ] Server Side Scripting (CGI)
         - [ ] Run scripts
