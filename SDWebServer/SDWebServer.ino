@@ -360,61 +360,39 @@ void setup(void){
     ApMode();
   } else {
     //WiFi Station mode
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(sssid, spassword);
+    logadd("Connecting to ", false);
+    logadd(sssids, false);
+    logadd("@", false);
+    logadd(spasswords, true);
+    // Wait for connection
+    uint8_t i = 0;
+    while (WiFi.status() != WL_CONNECTED && i++ < 20) {//wait 10 seconds
+      delay(500);
+      DBG_OUTPUT_PORT.print(".");
+    }
+    DBG_OUTPUT_PORT.println(".");
+    if(i == 21){
+      logadd("Starting AP, Could not connect to ", false);
+      logadd(sssids, true);
+      ApMode();
+      return;
+    }
+    logadd("Connected! IP address: ", false);
+    logadd(WiFi.localIP().toString(), true);
+    //setup DNS
+    if (MDNS.begin((const char *)hosts.c_str())) {
+      MDNS.addService("http", "tcp", 80);
+      logadd("MDNS responder started", true);
+      logadd("You can now connect to http://", false);
+      logadd(hosts, false);
+      logadd(".local", true);
+    }
   }
 
-  //setup web pages
-  server.on("/list", HTTP_GET, printDirectory);
-  server.on("/edit", HTTP_DELETE, handleDelete);
-  server.on("/edit", HTTP_PUT, handleCreate);
-  server.on("/edit", HTTP_POST, [](){ returnOK(); }, handleFileUpload);
-  server.onNotFound(handleNotFound);
-
-  //Update
-  server.on("/update/", HTTP_GET, []() {
-    server.send(200, "text/html", updateIndex);
-  });
-  server.on("/update/", HTTP_POST, [](){
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
-      ESP.restart();
-    },[](){
-      HTTPUpload& upload = server.upload();
-      if(upload.status == UPLOAD_FILE_START){
-        //Serial.setDebugOutput(true);
-        WiFiUDP::stopAll();
-        logadd("Update: %s\n", false);
-        logadd(upload.filename.c_str(), true);
-        logcommit();
-        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        if(!Update.begin(maxSketchSpace)){//start with max available size
-          Update.printError(Serial);
-          logadd("Update failed", true);
-          logcommit();
-        }
-      } else if(upload.status == UPLOAD_FILE_WRITE){
-        if(Update.write(upload.buf, upload.currentSize) != upload.currentSize){
-          Update.printError(Serial);
-          logadd("Update failed", true);
-          logcommit();
-        }
-      } else if(upload.status == UPLOAD_FILE_END){
-        if(Update.end(true)){ //true to set the size to the current progress
-          logadd("Update Success: %u\nRebooting...\n", false);
-          logadd(String(upload.totalSize), true);
-          logcommit();
-        } else {
-          Update.printError(Serial);
-          logadd("Update failed", true);
-          logcommit();
-        }
-        //Serial.setDebugOutput(false);
-      }
-      yield();
-    });
-
-  //begin server
-  server.begin();
-  logadd("HTTP server started", true);
+  //configure and begin server
+  setUpServer();
 
   //log everthing from startup
   logadd("", true);
@@ -555,10 +533,83 @@ bool loadConfig() {
 }
 
 void ApMode() {
-   
+    logadd("Stopping HTTP server...", true);
+    server.stop();
+    WiFi.mode(WIFI_AP_STA);
+    if (passwords.length() < 8 || passwords.length() > 63) {
+      passwords = "";
+      password = NULL;
+      logadd("Invalid WiFi AP Password, ignoring...", true);
+      WiFi.softAP(ssids.c_str());
+    } else {
+      WiFi.softAP(ssids.c_str(), passwords.c_str());
+    }
+    delay(500);
+    logadd("Switched to AP mode", true);
+    //WiFi.begin();
+    setUpServer();
+    IPAddress myIP = WiFi.softAPIP();
+    logadd("Hosting to ", false);
+    logadd(ssids, false);
+    logadd("@", false);
+    logadd(passwords, true);
+    logadd("AP IP address: ", false);
+    logadd(myIP.toString(), true);
 }
 
-void saveConfig() {
-  
+void setUpServer() {
+  //setup web pages
+  server.on("/list", HTTP_GET, printDirectory);
+  server.on("/edit", HTTP_DELETE, handleDelete);
+  server.on("/edit", HTTP_PUT, handleCreate);
+  server.on("/edit", HTTP_POST, [](){ returnOK(); }, handleFileUpload);
+  server.onNotFound(handleNotFound);
+
+  //Update
+  server.on("/update/", HTTP_GET, []() {
+    server.send(200, "text/html", updateIndex);
+  });
+  server.on("/update/", HTTP_POST, [](){
+      server.sendHeader("Connection", "close");
+      server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
+      ESP.restart();
+    },[](){
+      HTTPUpload& upload = server.upload();
+      if(upload.status == UPLOAD_FILE_START){
+        //Serial.setDebugOutput(true);
+        WiFiUDP::stopAll();
+        logadd("Update: %s\n", false);
+        logadd(upload.filename.c_str(), true);
+        logcommit();
+        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+        if(!Update.begin(maxSketchSpace)){//start with max available size
+          Update.printError(Serial);
+          logadd("Update failed", true);
+          logcommit();
+        }
+      } else if(upload.status == UPLOAD_FILE_WRITE){
+        if(Update.write(upload.buf, upload.currentSize) != upload.currentSize){
+          Update.printError(Serial);
+          logadd("Update failed", true);
+          logcommit();
+        }
+      } else if(upload.status == UPLOAD_FILE_END){
+        if(Update.end(true)){ //true to set the size to the current progress
+          logadd("Update Success: %u\nRebooting...\n", false);
+          logadd(String(upload.totalSize), true);
+          logcommit();
+        } else {
+          Update.printError(Serial);
+          logadd("Update failed", true);
+          logcommit();
+        }
+        //Serial.setDebugOutput(false);
+      }
+      yield();
+    });
+
+  //begin server
+  server.begin();
+  logadd("HTTP server started", true);
 }
 

@@ -35,7 +35,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
 
 ## Planned Features (And Progress)
 - [ ] Server Basis
-    - [ ] WiFi AP or Station (Automatic Switch)
+    - [X] WiFi AP or Station (Automatic Switch)
     - [X] mDNS Hostname
     - [ ] Asynchronous Requests
 - [ ] Expand Server
