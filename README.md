@@ -12,7 +12,7 @@ An Enhanced SD Card Web Server running on an ESP-12E..
             - [STA Mode](#sta-mode)
         - [SD File System Interface](#sd-file-system-interface)
             - [Create Files/Directories](#create-filesdirectories)
-            - [Upload Files/Directories](#upload-filesdirectories)
+            - [Upload Files](#upload-files)
             - [Edit Files/Directories](#edit-filesdirectories)
             - [Delete Files/Directories](#delete-filesdirectories)
             - [Download Files/Directories](#download-filesdirectories)
@@ -73,15 +73,24 @@ An Enhanced SD Card Web Server running on an ESP-12E..
 #### Compressed Pages
 
 ### Connecting/Running the Web Server
+Looking at the log sent through the serial monitor is the easiest way of figuring out what is going on.
 #### AP Mode
+If the server is configured('/config.jsn' or '/admin/') to always start on Access Point mode it will start on this mode right away. Otherwise it will automatically switch to this mode if it fails to connect in station mode. In AP mode the server creates it's own wifi netwok, with configurable ssid and password. This mode is only intended to be used to set up and configure the server as NTP and any other online functions won't work.
 #### STA Mode
+This is the default mode, the server will connect to an access point and you will be able to access it at it's custom address, set it the admin page or 'config.jsn'. It will look something like this: http://hostname.local
 
 ### SD File System Interface
+This is the heart of the server, it let's you browse the SD card directory and edit files.
 #### Create Files/Directories
-#### Upload Files/Directories
+By typing the filename and pressing the MkDir and MkFlie buttons you can make new files and directories.
+#### Upload Files
+By clicking on the choose file button you can upload files to the webserver's SD Card.
 #### Edit Files/Directories
+If the selected file is a text file it can be edited directly on the webpage with the editor. There is even syntax highlighting for code files. If it is an image a preview will be shown.
 #### Delete Files/Directories
+By right clicking over an item you can open a context menu, that allows you to delete it.
 #### Download Files/Directories
+By right clicking over an item you can open a context menu, that allows you to download it.
 
 ### Generated Pages
 #### Index Retrieval
@@ -95,11 +104,13 @@ If you navigate to a page that does not exist the server will show you a 404 err
 All server activity is loged to the 'server.log' file, located at the root of the SD card.
 
 ### Per-Page Authentication
+Via the configution page at '/admin/' or by editing '/config.jsn' you can set a list of pages/directories that require an admin login to be accessed. If a directory is set then so will it's 'index.htm'. Admin username and password are also settable via config.
 
 ### Web Update
 By going to '/update/' you can upload a '.bin' file directly into the flash of your ESP. Allowing for firmware updates wirelessly/remotely.
 
 ### IoT Server
+You can add a sensor value to it's own log by making a GET request to the server at '/iot/?name=feed_name&value=value'. The log is stored at '/iot/feed_name.csv' and a timestamp is automatically added with every log.
 
 ### Server Side Scripting
 #### Server Side Includes
@@ -110,6 +121,8 @@ By going to '/update/' you can upload a '.bin' file directly into the flash of y
 [Video](https://www.youtube.com/watch?v=SnCIYrGF4s8)
 
 ### Configuration Page
+At this page you can configure the main settings for the webserver, these settings are stored on the SD card. Making this server SD hotswapable!
+Consider this the control panel.
 
 ### Recommended SD Card File Structure
 

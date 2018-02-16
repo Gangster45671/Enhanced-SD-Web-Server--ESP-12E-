@@ -38,7 +38,25 @@
 
 #define DBG_OUTPUT_PORT Serial
 #define JSONBufferSize 800
+
 #define IOT_SERVER                  //comment this out to remove iot server
+
+#define TEMP_LOG                    //comment this out to remove DS18B20 Temperature logging
+#ifdef TEMP_LOG
+  #define TEMP_LOG_INTERVAL 10           //temperature logging interval in seconds
+  #define TEMP_LOG_L "/iot/srv-temp.csv" //temperature log location on SD card
+  #define TEMP_LOG_OUT false             //whether to add temperature readings to server log
+  //#define CUSTOM_SENS_LOG                 //if this is true, you can add more sensors to log in the digitalClockDisplay() function
+  #include <OneWire.h>
+  OneWire  ds(2);  // on pin D4 (a 4.7K pullup might be necessary)
+  unsigned long previousMillis = 0;
+  bool logTime = false;
+  byte present = 0;
+  //byte type_s = 0;
+  byte data[12];
+  byte addr[8];
+  float celsius;
+#endif
 
 #include <TimeLib.h>
 #include <WiFiUdp.h>
@@ -547,7 +565,16 @@ void loop(void) {
       digitalClockDisplay();
     }
   }
-  
+
+  #ifdef TEMP_LOG
+    if (logTime) {
+      unsigned long currentMillis = millis();
+      if(currentMillis - previousMillis >= 1000) {  //conversion time
+        previousMillis = currentMillis;   
+        logTemp(finishGetTemp());
+      }
+    }
+  #endif
 }
 
 //low-level universal functions
@@ -750,6 +777,14 @@ void setUpServer() {
   server.on("/iot", HTTP_GET, iotServer);
   server.on("/iot/", HTTP_GET, iotServer);
 #endif
+#ifdef TEMP_LOG
+  server.on("/temp", HTTP_GET, []() {
+    server.send(200, "text/plain", String(celsius)+"C");
+   });
+   server.on("/temp/", HTTP_GET, []() {
+    server.send(200, "text/plain", String(celsius)+"C");
+   });
+#endif
   server.on("/time", HTTP_GET, []() {
     server.send(200, "text/plain", lastTimestamp);
   });
@@ -857,6 +892,9 @@ void iotServer() {
 
 
 bool firstT = true;
+#ifdef TEMP_LOG
+  int logCycle = 0;
+#endif
 void digitalClockDisplay()
 {
   // digital clock display of the time
@@ -880,6 +918,18 @@ void digitalClockDisplay()
   printDigitsS(minute());
   lastShortTimestamp += ":";
   printDigitsS(second());
+
+  #ifdef TEMP_LOG
+    if (logCycle >= (TEMP_LOG_INTERVAL-1)) { //it takes one second to convert temperatures!
+      startGetTemp();
+      #ifdef CUSTOM_SENS_LOG
+        customLog();
+      #endif
+      logCycle = 0;
+    } else {
+      logCycle++;
+    }
+  #endif
 }
 
 void printDigits(int digits)
@@ -968,3 +1018,82 @@ void shortTimeStamp() {
   logadd(F("] "), false);
 }
 
+#ifdef TEMP_LOG
+//temp logging
+void logTemp(float temp) {
+  String dataString = "";
+    dataString += lastTimestamp;
+    dataString += ", ";
+    dataString += String(temp);
+
+    File dataFile = SD.open(TEMP_LOG_L, FILE_WRITE);
+    if (dataFile) {
+      dataFile.println(dataString);
+      dataFile.close();
+      // print to the serial port too:
+      if (TEMP_LOG_OUT) {
+        shortTimeStamp();
+        logadd(F("Temp Log: "), false);
+        logadd(dataString, false);
+        logadd(F("˚C"), true);
+      }
+    }
+    // if the file isn't open, pop up an error:
+    else {
+      shortTimeStamp();
+      logadd(F("Temp Log: Failed to open "), false);
+      logadd(TEMP_LOG_L, true);
+    }
+    logcommit();
+}
+
+float startGetTemp() {
+  restartT:
+  if ( !ds.search(addr)) {
+    ds.reset_search();
+    goto restartT;
+    //delay(250);
+    //return;
+  }
+  
+  ds.reset();
+  ds.select(addr);
+  ds.write(0x44, 1);        // start conversion, with parasite power on at the end
+  
+  //delay(1000);     // maybe 750ms is enough, maybe not   //must be async!
+  logTime = true;
+}
+
+float finishGetTemp() {
+
+  // we might do a ds.depower() here, but the reset will take care of it.
+  present = ds.reset();
+  ds.select(addr);    
+  ds.write(0xBE);         // Read Scratchpad
+  
+  for (byte i = 0; i < 9; i++) {           // we need 9 bytes
+    data[i] = ds.read();
+  }
+
+  logTime = false;
+
+  // Convert the data to actual temperature
+  int16_t raw = (data[1] << 8) | data[0];
+  byte cfg = (data[4] & 0x60);
+  // at lower res, the low bits are undefined, so let's zero them
+  if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
+  else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
+  else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
+  //// default is 12 bit resolution, 750 ms conversion time
+  celsius = (float)raw / 16.0;
+  return celsius;
+}
+
+#ifdef CUSTOM_SENS_LOG 
+  void customLog() {
+    //write your code to read your sensors and log to the SD Card here.
+    //IMPORTANT! MUST BE ASYNCHONOUS! THis means that you cannot have delay() or any other function that hangs up the code
+    //if this does not execute quicly it will break the HTTP server.
+  }
+#endif
+#endif
