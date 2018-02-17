@@ -1,4 +1,4 @@
-# Enhanced SD Web Server (ESP-12E)
+# Enhanced SD Web Server (ESP-12E) (in development)
 An Enhanced SD Card Web Server running on an ESP-12E..
 
 - [Enhanced SD Web Server (ESP-12E)](#enhanced-sd-web-server-esp-12e)
