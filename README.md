@@ -74,8 +74,7 @@ Lights:
     Activity/Serial
     Systems online
     Request in Progress/busy
-
-    new post on reddit / jenna tweet
+    Wifi event notification
 
 
 
