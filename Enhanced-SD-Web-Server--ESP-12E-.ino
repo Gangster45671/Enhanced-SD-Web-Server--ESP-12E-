@@ -1047,7 +1047,7 @@ void logTemp(float temp) {
     logcommit();
 }
 
-float startGetTemp() {
+void startGetTemp() {
   restartT:
   if ( !ds.search(addr)) {
     ds.reset_search();

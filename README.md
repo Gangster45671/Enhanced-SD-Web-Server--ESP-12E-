@@ -67,6 +67,17 @@ An Enhanced SD Card Web Server running on an ESP-12E..
     - *FTP Support?*
 
 ## About
+For Async look at TickerBasic
+
+
+Lights:
+    Activity/Serial
+    Systems online
+    Request in Progress/busy
+
+    new post on reddit / jenna tweet
+
+
 
 ### Content Type Support
 #### Supported MIME Types
